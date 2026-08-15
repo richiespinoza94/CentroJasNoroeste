@@ -1,7 +1,5 @@
 import { useStore } from '../../state/store.jsx';
-import { useAuth } from '../../firebase/AuthProvider.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
-import { ROLE_LABELS } from '../../domain/constants.js';
 import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../domain/stats.js';
 import SearchTab from './SearchTab.jsx';
 import TablesTab from './TablesTab.jsx';
@@ -19,20 +17,12 @@ const TABS = [
 
 export default function ReceptionScreen() {
   const { state, dispatch } = useStore();
-  const { user } = useAuth();
   const { participants, tables, loading } = useFirestoreData();
   const { receptionTab } = state;
 
   return (
     <div className="reception">
-      <div className="reception__header">
-        <div>
-          <h2 className="reception__title">Recepción — La Velada 2026</h2>
-          <div className="reception__subtitle">
-            {user.username} · {ROLE_LABELS[user.role]}
-          </div>
-        </div>
-      </div>
+      <h2 className="sr-only">Recepción — La Velada 2026</h2>
 
       <div className="reception__tabs" role="tablist" aria-label="Secciones de recepción">
         {TABS.map((t) => (

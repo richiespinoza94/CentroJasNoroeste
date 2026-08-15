@@ -7,18 +7,35 @@
   align-items: center;
   gap: var(--space-2);
   padding: 10px var(--space-4);
-  flex-wrap: wrap;
+}
+
+.navbar__scroll {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.navbar__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .navbar__brand {
+  flex: 0 0 auto;
+  white-space: nowrap;
   color: var(--white);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 14px;
-  margin-right: var(--space-2);
+  margin-right: var(--space-1);
 }
 
 .navbar__btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
   background: transparent;
   color: var(--white);
   padding: 8px 14px;
@@ -32,24 +49,18 @@
   color: var(--navy-800);
 }
 
-.navbar__session {
-  flex-basis: 100%;
-  margin-left: 0;
-  margin-top: 4px;
-  padding-top: var(--space-2);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
 .navbar__session-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
   color: #b9c3d6;
   font-size: 11.5px;
+  margin-left: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .navbar__logout {
+  flex: 0 0 auto;
   background: none;
   border: 1.5px solid rgba(255, 255, 255, 0.35);
   color: var(--white);

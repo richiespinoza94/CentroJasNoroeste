@@ -3,18 +3,6 @@
   max-width: 1000px;
 }
 
-.admin__title {
-  color: var(--navy-800);
-  font-size: 19px;
-  margin-bottom: 2px;
-}
-
-.admin__subtitle {
-  font-size: 12px;
-  color: var(--ink-300);
-  margin-bottom: var(--space-4);
-}
-
 .admin__tabs {
   display: flex;
   gap: var(--space-2);

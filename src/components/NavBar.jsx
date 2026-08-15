@@ -20,39 +20,42 @@ export default function NavBar() {
 
   return (
     <nav className="navbar" aria-label="Navegación principal">
-      <span className="navbar__brand">Centro JAS · La Velada</span>
+      <div className="navbar__scroll">
+        <span className="navbar__brand">Centro JAS · La Velada</span>
 
-      <button type="button" className="navbar__btn press" aria-current={state.screen === 'publico' ? 'page' : undefined} onClick={() => nav('publico')}>
-        Formulario
-      </button>
-
-      {!isLoggedIn && (
-        <button type="button" className="navbar__btn press" aria-current={state.screen === 'login' ? 'page' : undefined} onClick={() => nav('login')}>
-          Acceso staff
+        <button type="button" className="navbar__btn press" aria-current={state.screen === 'publico' ? 'page' : undefined} onClick={() => nav('publico')}>
+          Formulario
         </button>
-      )}
 
-      {isLoggedIn && (
-        <button type="button" className="navbar__btn press" aria-current={state.screen === 'recepcion' ? 'page' : undefined} onClick={() => nav('recepcion')}>
-          Recepción
-        </button>
-      )}
+        {!isLoggedIn && (
+          <button type="button" className="navbar__btn press" aria-current={state.screen === 'login' ? 'page' : undefined} onClick={() => nav('login')}>
+            Acceso staff
+          </button>
+        )}
 
-      {isAdmin && (
-        <button type="button" className="navbar__btn press" aria-current={state.screen === 'admin' ? 'page' : undefined} onClick={() => nav('admin')}>
-          Admin
-        </button>
-      )}
+        {isLoggedIn && (
+          <button type="button" className="navbar__btn press" aria-current={state.screen === 'recepcion' ? 'page' : undefined} onClick={() => nav('recepcion')}>
+            Recepción
+          </button>
+        )}
 
-      {isLoggedIn && (
-        <div className="navbar__session">
+        {isAdmin && (
+          <button type="button" className="navbar__btn press" aria-current={state.screen === 'admin' ? 'page' : undefined} onClick={() => nav('admin')}>
+            Admin
+          </button>
+        )}
+
+        {isLoggedIn && (
           <span className="navbar__session-label">
             {user.username} · {ROLE_LABELS[user.role]}
           </span>
-          <button type="button" className="navbar__logout press" onClick={handleLogout}>
-            Salir
-          </button>
-        </div>
+        )}
+      </div>
+
+      {isLoggedIn && (
+        <button type="button" className="navbar__logout press" onClick={handleLogout}>
+          Salir
+        </button>
       )}
     </nav>
   );

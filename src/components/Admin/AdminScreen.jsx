@@ -27,8 +27,7 @@ export default function AdminScreen() {
 
   return (
     <div className="admin">
-      <h2 className="admin__title">Dashboard — Admin</h2>
-      <div className="admin__subtitle">Actualización en tiempo real · La Velada 2026</div>
+      <h2 className="sr-only">Dashboard — Admin</h2>
 
       <div className="admin__tabs" role="tablist" aria-label="Secciones de administración">
         {TABS.map((t) => (
