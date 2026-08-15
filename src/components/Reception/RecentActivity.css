@@ -1,5 +1,7 @@
 .recent-activity {
   margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line-100);
 }
 
 .recent-activity__title {
@@ -24,11 +26,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--white);
+  background: var(--panel-50);
   border: 1.5px solid var(--line-100);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
-  box-shadow: var(--shadow-card);
   min-width: 0;
   max-width: 240px;
 }
