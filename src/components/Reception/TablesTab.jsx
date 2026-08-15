@@ -1,10 +1,10 @@
-import { useStore } from '../../state/store.jsx';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { computeTableCards } from '../../domain/stats.js';
 import './TablesTab.css';
 
 export default function TablesTab() {
-  const { state } = useStore();
-  const cards = computeTableCards(state.participants, state.tables);
+  const { tables } = useFirestoreData();
+  const cards = computeTableCards(tables);
 
   return (
     <div className="tables-grid">

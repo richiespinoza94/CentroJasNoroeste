@@ -24,21 +24,6 @@ export const DEFAULT_TABLES = [
 
 export const RESERVED_LABELS = { staff: 'Staff', programa: 'Programa', invitado: 'Invitados' };
 
-export const DEFAULT_USERS = [
-  { username: 'admin', role: 'admin', pin: '1234' },
-  { username: 'fiorella', role: 'recepcion', pin: null },
-  { username: 'renzo', role: 'recepcion', pin: null },
-];
-
-export const SEED_PARTICIPANTS = [
-  { id: 1, nombre: 'Sofía', apellidos: 'Ramírez Torres', sexo: 'F', tipoParticipante: 'Miembro', whatsapp: '955123456', estaca: 'Ventanilla', barrio: 'Naval', correo: '', categoria: 'participante', status: 'asignado', tableId: 1 },
-  { id: 2, nombre: 'Jorge Luis', apellidos: 'Mendoza Paredes', sexo: 'M', tipoParticipante: 'Invitado', whatsapp: '944556677', estaca: 'Miramar', barrio: 'Santa Rosa', correo: '', categoria: 'participante', status: 'presente', tableId: null },
-  { id: 3, nombre: 'Valeria', apellidos: 'Chumpitaz Rojas', sexo: 'F', tipoParticipante: 'Miembro', whatsapp: '987001122', estaca: 'Puente Piedra', barrio: 'Zapallal 1', correo: '', categoria: 'participante', status: 'pendiente', tableId: null },
-  { id: 4, nombre: 'Andrés', apellidos: 'Salazar Ibáñez', sexo: 'M', tipoParticipante: 'Miembro', whatsapp: '966334455', estaca: 'Ventanilla', barrio: 'Angamos', correo: '', categoria: 'staff', status: 'asignado', tableId: 1 },
-  { id: 5, nombre: 'Camila', apellidos: 'Ortiz Delgado', sexo: 'F', tipoParticipante: 'Invitado', whatsapp: '978112233', estaca: 'Miramar', barrio: 'Pachacutec', correo: '', categoria: 'programa', status: 'asignado', tableId: 9 },
-  { id: 6, nombre: 'Diego', apellidos: 'Fernández Quispe', sexo: 'M', tipoParticipante: 'Miembro', whatsapp: '933445566', estaca: 'Puente Piedra', barrio: 'Las Lomas', correo: '', categoria: 'participante', status: 'pendiente', tableId: null },
-];
-
 export const STATUS_META = {
   pendiente: { label: 'Pendiente ingreso', bg: 'var(--warn-bg)', color: 'var(--warn-fg)' },
   presente: { label: 'Presente', bg: 'var(--navy-100)', color: 'var(--navy-800)' },

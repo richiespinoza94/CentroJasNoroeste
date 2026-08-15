@@ -1,4 +1,6 @@
 import { useStore } from '../../state/store.jsx';
+import { useAuth } from '../../firebase/AuthProvider.jsx';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { ROLE_LABELS } from '../../domain/constants.js';
 import { computeStatCards } from '../../domain/stats.js';
 import SearchTab from './SearchTab.jsx';
@@ -16,7 +18,9 @@ const TABS = [
 
 export default function ReceptionScreen() {
   const { state, dispatch } = useStore();
-  const { loggedInUser, receptionTab, participants, tables } = state;
+  const { user } = useAuth();
+  const { participants, tables, loading } = useFirestoreData();
+  const { receptionTab } = state;
 
   return (
     <div className="reception">
@@ -24,7 +28,7 @@ export default function ReceptionScreen() {
         <div>
           <h2 className="reception__title">Recepción — La Velada 2026</h2>
           <div className="reception__subtitle">
-            {loggedInUser.username} · {ROLE_LABELS[loggedInUser.role]}
+            {user.username} · {ROLE_LABELS[user.role]}
           </div>
         </div>
       </div>
@@ -44,10 +48,16 @@ export default function ReceptionScreen() {
         ))}
       </div>
 
-      {receptionTab === 'buscar' && <SearchTab />}
-      {receptionTab === 'mesas' && <TablesTab />}
-      {receptionTab === 'manual' && <ManualTab />}
-      {receptionTab === 'dashboard' && <StatCards cards={computeStatCards(participants, tables)} />}
+      {loading ? (
+        <div className="reception__loading">Cargando datos en tiempo real…</div>
+      ) : (
+        <>
+          {receptionTab === 'buscar' && <SearchTab />}
+          {receptionTab === 'mesas' && <TablesTab />}
+          {receptionTab === 'manual' && <ManualTab />}
+          {receptionTab === 'dashboard' && <StatCards cards={computeStatCards(participants, tables)} />}
+        </>
+      )}
     </div>
   );
 }

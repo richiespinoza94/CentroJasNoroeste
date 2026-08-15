@@ -42,3 +42,10 @@
   background: var(--navy-800);
   color: var(--white);
 }
+
+.reception__loading {
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 13px;
+  padding: 40px 0;
+}

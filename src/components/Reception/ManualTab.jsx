@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useStore } from '../../state/store.jsx';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
+import { validateManual } from '../../domain/validation.js';
+import { registerManual } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
 import './ManualTab.css';
 
@@ -9,25 +12,35 @@ import './ManualTab.css';
 // self-service registration (no privacy checkbox, defaults to "presente").
 export default function ManualTab() {
   const { state, dispatch } = useStore();
+  const { participants } = useFirestoreData();
   const toast = useToast();
   const { manual, manualError, manualSuccess } = state;
-  const prevSuccess = useRef(manualSuccess);
-
-  useEffect(() => {
-    if (manualSuccess && manualSuccess !== prevSuccess.current) toast(manualSuccess);
-    prevSuccess.current = manualSuccess;
-  }, [manualSuccess, toast]);
+  const [submitting, setSubmitting] = useState(false);
 
   const setManual = (patch) => dispatch({ type: 'SET_MANUAL', patch });
 
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const error = validateManual(manual, participants);
+    if (error) {
+      dispatch({ type: 'MANUAL_ERROR', error });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await registerManual(manual);
+      const message = `${manual.nombre.trim()} registrado(a) y presente.`;
+      dispatch({ type: 'MANUAL_SUCCESS', message });
+      toast(message);
+    } catch (err) {
+      dispatch({ type: 'MANUAL_ERROR', error: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <form
-      className="manual-tab"
-      onSubmit={(e) => {
-        e.preventDefault();
-        dispatch({ type: 'SUBMIT_MANUAL' });
-      }}
-    >
+    <form className="manual-tab" onSubmit={handleSubmit}>
       <div className="manual-tab__title">Registro manual</div>
 
       <Field id="manualNombre" label="Nombre">
@@ -80,8 +93,8 @@ export default function ManualTab() {
       )}
       {manualSuccess && <span className="manual-tab__success">{manualSuccess}</span>}
 
-      <button type="submit" className="manual-tab__submit press">
-        Registrar y marcar presente
+      <button type="submit" className="manual-tab__submit press" disabled={submitting}>
+        {submitting ? 'Registrando…' : 'Registrar y marcar presente'}
       </button>
     </form>
   );

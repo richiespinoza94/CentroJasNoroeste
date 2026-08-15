@@ -1,4 +1,4 @@
-import { useStore } from '../../state/store.jsx';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../domain/stats.js';
 import StatCards from '../shared/StatCards.jsx';
 import DistributionBars from '../shared/DistributionBars.jsx';
@@ -7,13 +7,20 @@ import UsersConfig from './UsersConfig.jsx';
 import './AdminScreen.css';
 
 export default function AdminScreen() {
-  const { state } = useStore();
-  const { participants, tables } = state;
+  const { participants, tables, loading } = useFirestoreData();
+
+  if (loading) {
+    return (
+      <div className="admin">
+        <div className="admin__loading">Cargando datos en tiempo real…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin">
       <h2 className="admin__title">Dashboard — Admin</h2>
-      <div className="admin__subtitle">Actualización en tiempo real (simulada) · La Velada 2026</div>
+      <div className="admin__subtitle">Actualización en tiempo real · La Velada 2026</div>
 
       <div className="admin__stats">
         <StatCards cards={computeStatCards(participants, tables)} />
@@ -33,7 +40,7 @@ export default function AdminScreen() {
         />
       </div>
 
-      <TablesConfig />
+      <TablesConfig tables={tables} />
       <UsersConfig />
     </div>
   );

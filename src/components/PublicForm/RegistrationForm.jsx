@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { ESTACAS, EVENT_INFO } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
+import { registerParticipant } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
 import './RegistrationForm.css';
 
@@ -9,24 +10,55 @@ const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'tipoPart
 
 export default function RegistrationForm() {
   const { state, dispatch } = useStore();
-  const { form, touched, attempted, participants } = state;
+  const { form, touched, attempted } = state;
   const refs = useRef({});
+  const [submitting, setSubmitting] = useState(false);
+  // "Ya existe un registro" can only be known once Firestore rejects the
+  // write — the public form has no read access to the participant list
+  // (by design, see firestore.rules), so this can't be a live field check
+  // the way the other validations are.
+  const [serverError, setServerError] = useState('');
 
-  const errors = useMemo(() => validateRegistration(form, participants), [form, participants]);
+  const errors = useMemo(() => validateRegistration(form, []), [form]);
   const showErr = (field) => ((attempted || touched[field]) ? errors[field] : undefined);
 
-  const setForm = (patch) => dispatch({ type: 'SET_FORM', patch });
+  const setForm = (patch) => {
+    if (patch.whatsapp !== undefined) setServerError('');
+    dispatch({ type: 'SET_FORM', patch });
+  };
   const touch = (field) => dispatch({ type: 'TOUCH_FIELD', field });
 
   const barrioOptions = ESTACAS[form.estaca] || [];
   const showBarrioSelect = !!form.estaca && form.estaca !== 'Otra estaca';
   const showBarrioInput = form.estaca === 'Otra estaca';
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    dispatch({ type: 'SUBMIT_FORM' });
-    const firstInvalid = FIELD_ORDER.find((f) => errors[f]);
-    if (firstInvalid) refs.current[firstInvalid]?.focus();
+    if (Object.keys(errors).length > 0) {
+      dispatch({ type: 'SUBMIT_ATTEMPT' });
+      const firstInvalid = FIELD_ORDER.find((f) => errors[f]);
+      if (firstInvalid) refs.current[firstInvalid]?.focus();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await registerParticipant(form);
+      const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
+      dispatch({
+        type: 'FORM_SUCCESS',
+        confirmed: {
+          nombreCompleto: `${form.nombre.trim()} ${form.apellidos.trim()}`,
+          codigo: `JAS-${form.whatsapp.slice(-4)}`,
+          estacaBarrio: `${estaca} · ${form.barrio.trim()}`,
+        },
+      });
+    } catch (err) {
+      setServerError(err.message);
+      touch('whatsapp');
+      refs.current.whatsapp?.focus();
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -107,7 +139,7 @@ export default function RegistrationForm() {
           </Field>
         </div>
 
-        <Field id="whatsapp" label="WhatsApp" error={showErr('whatsapp')}>
+        <Field id="whatsapp" label="WhatsApp" error={showErr('whatsapp') || serverError}>
           {(a) => (
             <input
               {...a}
@@ -219,8 +251,8 @@ export default function RegistrationForm() {
           </span>
         )}
 
-        <button type="submit" className="reg-form__submit press">
-          Registrarme
+        <button type="submit" className="reg-form__submit press" disabled={submitting}>
+          {submitting ? 'Registrando…' : 'Registrarme'}
         </button>
       </div>
     </form>

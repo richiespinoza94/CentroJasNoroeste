@@ -1,0 +1,113 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+//
+// Design notes (see README for the full writeup):
+// - No PIN ever touches Firestore. The 4-digit staff PIN is folded into a
+//   Firebase Auth email/password pair (see src/firebase/auth.js); Firebase's
+//   own servers verify it, these rules never see it.
+// - `pendingStaff/{username}` is where an admin reserves a username+role
+//   *before* that person has ever signed in. `staff/{uid}` is the real
+//   profile, created by the person themselves on first login, but the role
+//   they can claim is locked to whatever the admin reserved — a client can
+//   never self-assign role:'admin'.
+// - `participants/{whatsapp}` uses the WhatsApp number as the document ID so
+//   "no duplicate registrations" is an atomic doc-creation check, not a
+//   racy query.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function staffDoc() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+    }
+    function isStaff() {
+      return isSignedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+    function isAdmin() {
+      return isStaff() && staffDoc().role == 'admin';
+    }
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function onlyAffects(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Public registration (PRD §7): anyone can create their own entry, but
+    // only with the shape a fresh self-registration is allowed to have —
+    // they can't mark themselves "presente" or pre-assign a table. Staff can
+    // create too (manual registration, PRD §8) with looser shape rules.
+    match /participants/{whatsapp} {
+      function isValidPublicCreate() {
+        let d = request.resource.data;
+        return request.resource.id == whatsapp
+          && d.whatsapp == whatsapp
+          && whatsapp.matches('^9[0-9]{8}$')
+          && d.status == 'pendiente'
+          && d.tableId == null
+          && d.categoria == 'participante'
+          && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 40
+          && d.apellidos is string && d.apellidos.size() > 0 && d.apellidos.size() <= 50;
+      }
+      // A specific WhatsApp number can be looked up by anyone who already
+      // knows it (needed for the client-side "ya existe un registro" dedup
+      // check before submit) — but the full list/collection can't be
+      // enumerated or queried by the public, only by staff.
+      allow get: if true;
+      allow list: if isStaff();
+      allow create: if isValidPublicCreate() || isStaff();
+      allow update: if isStaff();
+      allow delete: if false;
+    }
+
+    // Tables: staff can read and can move people in/out (which only ever
+    // touches `occ`, always inside a transaction — see collections.js).
+    // Everything else (capacity, reservedFor, creating/deleting a table) is
+    // an admin-only operation (PRD §4).
+    match /tables/{tableId} {
+      allow read: if isStaff();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isStaff() && onlyAffects(['occ']));
+    }
+
+    // A username+role an admin reserved, before that person has ever signed
+    // in. Publicly readable so the login screen can tell "not registered"
+    // apart from "registered, needs to set a PIN" without an admin session.
+    match /pendingStaff/{username} {
+      allow read: if true;
+      allow create: if isAdmin();
+      // An admin can always retract a reservation. Once claimed, the person
+      // who just created their own staff profile can clear their own
+      // leftover reservation doc too (never anyone else's).
+      allow delete: if isAdmin() || (isStaff() && staffDoc().username == username);
+      allow update: if false;
+    }
+
+    // Reverse pointer so the login screen can tell "needs to create a PIN"
+    // apart from "already has one" without reading the staff profile itself.
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isSelf(request.resource.data.uid);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // The real staff profile. Role is locked to whatever the admin put in
+    // pendingStaff/{username} at creation time — a signed-in user can never
+    // hand themselves a different role than the one an admin reserved.
+    match /staff/{uid} {
+      function pendingRole() {
+        return get(/databases/$(database)/documents/pendingStaff/$(request.resource.data.username)).data.role;
+      }
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isSelf(uid)
+        && request.resource.data.role == pendingRole()
+        && request.resource.data.username is string;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}

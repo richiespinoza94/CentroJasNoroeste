@@ -1,38 +1,51 @@
-import { useStore } from '../../state/store.jsx';
+import { useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
-import { occupancyByTable } from '../../domain/tables.js';
+import { addTable, removeTable, setTableCapacity, setTableReserved } from '../../firebase/collections.js';
 import { TrashIcon } from '../ui/Icon.jsx';
 import './TablesConfig.css';
 
-export default function TablesConfig() {
-  const { state, dispatch } = useStore();
+export default function TablesConfig({ tables }) {
   const toast = useToast();
-  const { tables, participants } = state;
-  const occByTable = occupancyByTable(participants);
+  const [busyId, setBusyId] = useState(null);
+  const [adding, setAdding] = useState(false);
 
-  function handleRemove(t) {
+  async function handleRemove(t) {
     if (!window.confirm(`¿Eliminar "${t.name}"? Esta acción no se puede deshacer.`)) return;
-    dispatch({ type: 'REMOVE_TABLE', id: t.id });
-    toast(`${t.name} eliminada.`);
+    setBusyId(t.id);
+    try {
+      await removeTable(t.id);
+      toast(`${t.name} eliminada.`);
+    } catch (err) {
+      toast(err.message || 'No se pudo eliminar la mesa.', 'error');
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  function handleAdd() {
-    dispatch({ type: 'ADD_TABLE' });
-    toast(`Mesa ${state.nextTableId} creada.`);
+  async function handleAdd() {
+    setAdding(true);
+    try {
+      await addTable(tables);
+      toast('Mesa creada.');
+    } catch (err) {
+      toast(err.message || 'No se pudo crear la mesa.', 'error');
+    } finally {
+      setAdding(false);
+    }
   }
 
   return (
     <div className="admin__panel">
       <div className="admin__panel-head">
         <div className="admin__panel-title">Configuración de mesas</div>
-        <button type="button" className="admin__add-btn press" onClick={handleAdd}>
+        <button type="button" className="admin__add-btn press" disabled={adding} onClick={handleAdd}>
           + Agregar mesa
         </button>
       </div>
 
       <div>
         {tables.map((t) => {
-          const occ = occByTable[t.id] || 0;
+          const occ = t.occ || 0;
           const canDelete = occ === 0;
           return (
             <div className="tables-config__row" key={t.id}>
@@ -43,11 +56,12 @@ export default function TablesConfig() {
                   Capacidad
                 </label>
                 <input
+                  key={t.capacity}
                   id={`cap-${t.id}`}
                   type="number"
                   min="1"
-                  value={t.capacity}
-                  onChange={(e) => dispatch({ type: 'SET_TABLE_CAPACITY', id: t.id, value: e.target.value })}
+                  defaultValue={t.capacity}
+                  onBlur={(e) => setTableCapacity(t.id, e.target.value)}
                 />
               </div>
 
@@ -55,7 +69,7 @@ export default function TablesConfig() {
                 <label className="tables-config__field-label" htmlFor={`res-${t.id}`}>
                   Reservada para
                 </label>
-                <select id={`res-${t.id}`} value={t.reservedFor || ''} onChange={(e) => dispatch({ type: 'SET_TABLE_RESERVED', id: t.id, value: e.target.value })}>
+                <select id={`res-${t.id}`} value={t.reservedFor || ''} onChange={(e) => setTableReserved(t.id, e.target.value)}>
                   <option value="">General (todos)</option>
                   <option value="staff">Solo staff</option>
                   <option value="programa">Solo programa</option>
@@ -66,7 +80,7 @@ export default function TablesConfig() {
               <span className="tables-config__occ tabular">{occ} ocup.</span>
 
               {canDelete && (
-                <button type="button" className="tables-config__delete press" onClick={() => handleRemove(t)} aria-label={`Eliminar ${t.name}`}>
+                <button type="button" className="tables-config__delete press" disabled={busyId === t.id} onClick={() => handleRemove(t)} aria-label={`Eliminar ${t.name}`}>
                   <TrashIcon width={18} height={18} />
                 </button>
               )}

@@ -1,14 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
 import { STATUS_META, CATEGORY_META } from '../../domain/constants.js';
 import { recommendTables } from '../../domain/tables.js';
+import { checkIn, assignTable, unassignTable } from '../../firebase/collections.js';
 import './SearchTab.css';
 
 export default function SearchTab() {
   const { state, dispatch } = useStore();
+  const { participants, tables } = useFirestoreData();
   const toast = useToast();
-  const { participants, tables, search, selectedId } = state;
+  const { search, selectedId } = state;
+  const [busy, setBusy] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -17,20 +21,41 @@ export default function SearchTab() {
   }, [participants, search]);
 
   const selected = participants.find((p) => p.id === selectedId) || null;
-  const recs = selected ? recommendTables(selected, tables, participants) : [];
+  const recs = selected ? recommendTables(selected, tables) : [];
   const tableName = selected?.tableId ? tables.find((t) => t.id === selected.tableId)?.name : '';
 
-  function handleCheckIn(p) {
-    dispatch({ type: 'CHECK_IN', id: p.id });
-    toast(`${p.nombre} marcado(a) como presente.`);
+  async function handleCheckIn(p) {
+    setBusy(true);
+    try {
+      await checkIn(p.id);
+      toast(`${p.nombre} marcado(a) como presente.`);
+    } catch (err) {
+      toast(err.message || 'No se pudo confirmar asistencia.', 'error');
+    } finally {
+      setBusy(false);
+    }
   }
-  function handleAssign(p, tableId, name) {
-    dispatch({ type: 'ASSIGN_TABLE', id: p.id, tableId });
-    toast(`${p.nombre} asignado(a) a ${name}.`);
+  async function handleAssign(p, tableId, name) {
+    setBusy(true);
+    try {
+      await assignTable(p.id, tableId);
+      toast(`${p.nombre} asignado(a) a ${name}.`);
+    } catch (err) {
+      toast(err.message || 'No se pudo asignar la mesa.', 'error');
+    } finally {
+      setBusy(false);
+    }
   }
-  function handleUnassign(p) {
-    dispatch({ type: 'UNASSIGN_TABLE', id: p.id });
-    toast(`${p.nombre} liberado(a) de su mesa.`);
+  async function handleUnassign(p) {
+    setBusy(true);
+    try {
+      await unassignTable(p.id);
+      toast(`${p.nombre} liberado(a) de su mesa.`);
+    } catch (err) {
+      toast(err.message || 'No se pudo liberar la mesa.', 'error');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -91,7 +116,7 @@ export default function SearchTab() {
             </span>
 
             {selected.status === 'pendiente' && (
-              <button type="button" className="search-tab__checkin press" onClick={() => handleCheckIn(selected)}>
+              <button type="button" className="search-tab__checkin press" disabled={busy} onClick={() => handleCheckIn(selected)}>
                 Confirmar asistencia
               </button>
             )}
@@ -101,7 +126,7 @@ export default function SearchTab() {
                 <div className="search-tab__recs-title">Mesas recomendadas</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {recs.map((r) => (
-                    <button key={r.id} type="button" className="search-tab__rec press" onClick={() => handleAssign(selected, r.id, r.name)}>
+                    <button key={r.id} type="button" className="search-tab__rec press" disabled={busy} onClick={() => handleAssign(selected, r.id, r.name)}>
                       <span className="search-tab__rec-name">{r.name}</span>
                       <span className="search-tab__rec-left">{r.spacesLeft} espacios</span>
                     </button>
@@ -115,7 +140,7 @@ export default function SearchTab() {
               <div className="search-tab__table-info">
                 <div className="search-tab__meta">Mesa asignada</div>
                 <div className="search-tab__table-name">{tableName}</div>
-                <button type="button" className="search-tab__change press" onClick={() => handleUnassign(selected)}>
+                <button type="button" className="search-tab__change press" disabled={busy} onClick={() => handleUnassign(selected)}>
                   Cambiar de mesa
                 </button>
               </div>

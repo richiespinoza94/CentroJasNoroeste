@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from './state/store.jsx';
+import { useAuth } from './firebase/AuthProvider.jsx';
 import NavBar from './components/NavBar.jsx';
 import ToastHost from './components/ui/ToastHost.jsx';
 import PublicScreen from './components/PublicForm/PublicScreen.jsx';
@@ -10,25 +11,33 @@ import './App.css';
 
 export default function App() {
   const { state, dispatch } = useStore();
-  const isLoggedIn = !!state.loggedInUser;
-  const isAdmin = isLoggedIn && state.loggedInUser.role === 'admin';
+  const { user, loading: authLoading } = useAuth();
+  const isLoggedIn = !!user;
+  const isAdmin = isLoggedIn && user.role === 'admin';
 
-  // Guard rails: an unauthenticated tab landing on a staff screen (e.g. a
-  // stale bookmark) is sent to login instead of rendering a blank page.
+  // Screen transitions driven by auth state live here, in one place, keyed
+  // off `isLoggedIn` itself rather than dispatched optimistically right
+  // after a sign-in call resolves — Firebase Auth's own promise resolving
+  // is not the same moment the AuthProvider context re-renders with the new
+  // user, and navigating on the former raced this effect's stale-session
+  // guard into bouncing a just-logged-in staff member straight back to the
+  // login screen.
   useEffect(() => {
+    if (authLoading) return;
+    if (isLoggedIn && state.screen === 'login') dispatch({ type: 'NAV', screen: 'recepcion' });
     if (state.screen === 'recepcion' && !isLoggedIn) dispatch({ type: 'NAV', screen: 'login' });
     if (state.screen === 'admin' && !isAdmin) dispatch({ type: 'NAV', screen: isLoggedIn ? 'recepcion' : 'login' });
-  }, [state.screen, isLoggedIn, isAdmin, dispatch]);
+  }, [state.screen, isLoggedIn, isAdmin, authLoading, dispatch]);
 
   return (
     <div className="app-shell">
       <NavBar />
       <main className="app-main">
         <div className="app-main__inner">
-          {state.screen === 'publico' && <PublicScreen />}
-          {state.screen === 'login' && <LoginScreen />}
-          {state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
-          {state.screen === 'admin' && isAdmin && <AdminScreen />}
+          {!authLoading && state.screen === 'publico' && <PublicScreen />}
+          {!authLoading && state.screen === 'login' && <LoginScreen />}
+          {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
+          {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
         </div>
       </main>
       <ToastHost />

@@ -1,12 +1,10 @@
-import { occupancyByTable } from './tables.js';
 import { RESERVED_LABELS } from './constants.js';
 
 export function computeStatCards(participants, tables) {
   const capacidadTotal = tables.reduce((a, t) => a + t.capacity, 0);
-  const ocupados = participants.filter((p) => p.tableId).length;
+  const ocupados = tables.reduce((a, t) => a + (t.occ || 0), 0);
   const confirmados = participants.filter((p) => p.status !== 'pendiente').length;
-  const occ = occupancyByTable(participants);
-  const mesasCompletas = tables.filter((t) => (occ[t.id] || 0) >= t.capacity).length;
+  const mesasCompletas = tables.filter((t) => (t.occ || 0) >= t.capacity).length;
 
   return [
     { label: 'Registrados', value: participants.length },
@@ -23,10 +21,9 @@ export function computeStatCards(participants, tables) {
   ];
 }
 
-export function computeTableCards(participants, tables) {
-  const occByTable = occupancyByTable(participants);
+export function computeTableCards(tables) {
   return tables.map((t) => {
-    const occ = occByTable[t.id] || 0;
+    const occ = t.occ || 0;
     const left = t.capacity - occ;
     const pct = Math.round((occ / t.capacity) * 100);
     let accentColor = 'var(--success-500)';

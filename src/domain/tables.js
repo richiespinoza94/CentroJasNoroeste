@@ -1,19 +1,15 @@
-/** Occupancy count per table, from the flat participants list. */
-export function occupancyByTable(participants) {
-  const occ = {};
-  for (const p of participants) {
-    if (p.tableId) occ[p.tableId] = (occ[p.tableId] || 0) + 1;
-  }
-  return occ;
-}
-
 /**
  * Table recommendation algorithm (PRD §11): filters tables this person is
  * allowed to sit at (reserved-for rules), ranks by tightest fit first so
  * assignment doesn't fragment the room, and returns the top 3.
+ *
+ * Reads `table.occ` directly — a counter Firestore keeps in sync with each
+ * assignment inside a transaction (see firebase/collections.js) — rather
+ * than recomputing occupancy by scanning every participant, so this stays
+ * correct under concurrent writes instead of a snapshot that's already
+ * stale by the time it renders.
  */
-export function recommendTables(person, tables, participants) {
-  const occ = occupancyByTable(participants);
+export function recommendTables(person, tables) {
   return tables
     .filter((t) => {
       if (!t.reservedFor) return true;
@@ -22,7 +18,7 @@ export function recommendTables(person, tables, participants) {
       if (t.reservedFor === 'invitado') return person.tipoParticipante === 'Invitado';
       return true;
     })
-    .map((t) => ({ id: t.id, name: t.name, spacesLeft: t.capacity - (occ[t.id] || 0) }))
+    .map((t) => ({ id: t.id, name: t.name, spacesLeft: t.capacity - (t.occ || 0) }))
     .filter((t) => t.spacesLeft > 0)
     .sort((a, b) => a.spacesLeft - b.spacesLeft)
     .slice(0, 3);

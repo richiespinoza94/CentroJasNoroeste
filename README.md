@@ -1,9 +1,9 @@
 # Centro JAS · La Velada
 
 App de registro, recepción y asignación de mesas para "La Velada", la cena
-formal del Centro JAS Noroeste. Implementación en React (Vite) del prototipo
-diseñado en Claude Design (`Centro JAS - La Velada.dc.html`), con mejoras de
-UX/accesibilidad aplicadas por perfil.
+formal del Centro JAS Noroeste. React (Vite) + Firestore en tiempo real,
+implementada a partir del prototipo diseñado en Claude Design
+(`Centro JAS - La Velada.dc.html`).
 
 ## Perfiles / pantallas
 
@@ -13,73 +13,144 @@ UX/accesibilidad aplicadas por perfil.
 | Staff (recepción) | Buscar/check-in, vista de mesas, registro manual, dashboard | Login → `Recepción` |
 | Admin | Dashboard, distribución por estaca/barrio, config. de mesas, usuarios | Login (rol admin) → `Admin` |
 
-## Setup
+## Setup del proyecto Firebase (una sola vez)
+
+Proyecto: [`centro-jas-noroeste`](https://console.firebase.google.com/u/0/project/centro-jas-noroeste/firestore).
+
+1. **Habilitar Firestore** — Console → Firestore Database → Crear base de
+   datos (modo producción, la región no importa demasiado para este
+   volumen; `southamerica-east1` o `us-central1` están bien).
+2. **Habilitar el método de acceso Email/Password** — Console →
+   Authentication → Sign-in method → habilitar "Correo electrónico y
+   contraseña". El login sigue siendo por usuario + PIN de 4 dígitos desde
+   la app; por dentro se apoya en Firebase Auth para que las reglas de
+   seguridad puedan verificar de verdad quién es admin/recepción (ver
+   sección "Cómo funciona el login" más abajo).
+3. **Copiar la config del SDK web** — Console → Project settings → General
+   → Your apps → agregar app web si no existe → copiar los valores a
+   `.env.local` (usa `.env.example` como plantilla). Estos valores no son
+   secretos, están pensados para ir en el bundle del navegador.
+4. **Descargar una service account key** (solo para el script de seed) —
+   Console → Project settings → Service accounts → Generate new private
+   key → guardar como `serviceAccountKey.json` en la raíz del proyecto
+   (ya está en `.gitignore`, nunca se sube).
+5. **Instalar el Firebase CLI y desplegar las reglas**:
+   ```bash
+   npm install -g firebase-tools   # o usa npx en cada comando
+   firebase login
+   firebase deploy --only firestore:rules --project centro-jas-noroeste
+   ```
+6. **Sembrar las mesas y el admin inicial**:
+   ```bash
+   npm run seed
+   ```
+   Crea las 9 mesas por defecto (respeta las que ya existan, no las
+   pisa) y un usuario `admin` con PIN `1234` si todavía no hay ninguno con
+   ese username — **cambia ese PIN apenas inicies sesión la primera vez**
+   (aún no hay UI para cambiar el propio PIN; queda como pendiente, ver
+   abajo). Personalizable vía `SEED_ADMIN_USERNAME`/`SEED_ADMIN_PIN` en
+   `.env.local`.
+
+## Correr localmente
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # build de producción a dist/
-npm run check    # self-check de la lógica de validación y recomendación de mesas
+npm run dev       # contra Firestore real (necesita .env.local completo)
+npm run build     # build de producción a dist/
+npm run check     # self-check de validación + algoritmo de mesas (sin red)
 ```
 
-Usuarios de prueba (seed): `admin` (PIN `1234`, rol admin), `fiorella` y
-`renzo` (rol recepción, sin PIN — el primer login les pide crear uno).
+### Contra el emulador local, sin tocar datos reales
+
+```bash
+npm run emulators        # Firestore + Auth emulator, otra terminal
+npm run dev:emulator      # la app se conecta al emulador en vez de producción
+```
+Necesita `firebase-tools` (`npx firebase-tools` si no está instalado
+globalmente) y Java (para el emulador de Firestore). El seed también
+funciona contra el emulador si exportas `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`
+y `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099` antes de correrlo.
+
+## Desplegar en Vercel
+
+1. Importa el repo en Vercel, rama `claude/centro-jas-code-generation-p4k9ha`
+   (o la que corresponda una vez mergeado a `main`).
+2. Vercel detecta Vite automáticamente (`npm run build`, output `dist`).
+3. Agrega las mismas variables de `.env.local` en Project Settings →
+   Environment Variables (los `VITE_FIREBASE_*`).
+4. Deploy. Cada push a la rama conectada vuelve a desplegar solo.
 
 ## Arquitectura
 
 ```
 src/
-  domain/        lógica de negocio pura (validación, recomendación de mesas,
-                  estadísticas) — sin React, fácil de testear y de mover a
-                  Cloud Functions más adelante si hace falta.
-  state/store.jsx estado global (useReducer + Context). Reemplaza 1:1 la
-                  clase Component del prototipo, con persistencia en
-                  localStorage para no perder registros al recargar.
-  components/     un directorio por pantalla (PublicForm, Login, Reception,
-                  Admin) + shared/ y ui/ para lo reutilizado entre pantallas.
+  domain/          lógica de negocio pura (validación, recomendación de
+                    mesas, estadísticas) — sin React ni Firebase, fácil de
+                    testear (scripts/self-check.mjs) y de mover a Cloud
+                    Functions si algún día hace falta.
+  firebase/
+    config.js       inicializa Firebase (o el emulador local)
+    auth.js          login por usuario+PIN sobre Firebase Auth
+    collections.js   lecturas en tiempo real + escrituras/transacciones
+                      de participants y tables
+    AuthProvider.jsx  contexto: quién está logueado y con qué rol
+    DataProvider.jsx  contexto: participants/tables en tiempo real
+  state/store.jsx   estado *local* de UI (borradores de formulario, tab
+                    activo, pasos de login) — nunca datos compartidos
+  components/       un directorio por pantalla (PublicForm, Login,
+                    Reception, Admin) + shared/ y ui/
 ```
 
-Separación deliberada por PRD §18: la UI nunca calcula reglas de negocio
-directamente, siempre pasa por `domain/`. Esto es lo que permite enchufar
-Firestore después tocando un solo archivo (`state/store.jsx`) sin rehacer
-componentes.
+## Cómo funciona el login (usuario + PIN sobre Firebase Auth)
 
-## Diagnóstico UX aplicado (ui-ux-pro-max + frontend-design)
+El PIN de 4 dígitos nunca toca Firestore. `username` se convierte en un
+correo sintético (`fiorella@login.centrojasnoroeste.app`) y el PIN se
+rellena para cumplir el mínimo de 6 caracteres de Firebase Auth
+(`cjn-1234-pin`) — el relleno es solo un ajuste de longitud, la
+verificación real la hace Firebase, no el cliente.
 
-Cambios concretos sobre el prototipo, por qué importan y dónde viven:
+Flujo de creación de cuenta:
+1. Un admin reserva `username` + `role` en `pendingStaff/{username}`
+   (público de solo lectura, así el login puede distinguir "no existe" de
+   "existe pero sin PIN" sin necesitar sesión).
+2. La primera vez que esa persona entra, la app crea la cuenta de Firebase
+   Auth y, en un batch, el perfil real `staff/{uid}` — con el **rol tomado
+   de `pendingStaff`, no de lo que mande el cliente** (`firestore.rules`
+   lo valida con un `get()`), así nadie puede auto-asignarse admin.
+3. `usernames/{username} → {uid}` queda como puntero para logins
+   posteriores.
 
-- **Accesibilidad de formularios** — labels reales (`<label htmlFor>`) en vez
-  de `<span>` decorativo, errores con `role="alert"`/`aria-describedby`, y
-  foco automático al primer campo inválido tras un submit fallido
-  (`RegistrationForm.jsx`).
-- **Touch targets ≥44px** en inputs, botones y tabs — el prototipo original
-  tenía varios controles por debajo del mínimo táctil (`tokens.css`,
-  `--touch-min`).
-- **Feedback inmediato tras cada acción** (PRD §14 lo pide explícitamente) —
-  toasts al hacer check-in, asignar/liberar mesa, registrar manualmente o
-  crear mesa/usuario (`hooks/useToast.jsx`).
-- **Confirmación antes de acciones destructivas** — eliminar una mesa o un
-  usuario ahora pide confirmación nativa; el prototipo lo ejecutaba al
-  instante (`Admin/TablesConfig.jsx`, `Admin/UsersConfig.jsx`).
-- **Sin bezel de iPhone falso en producción** — el prototipo envolvía el
-  formulario público en `ios-frame.jsx` (un mockup de dispositivo para
-  previsualizar en el canvas de diseño). En producción el teléfono real del
-  asistente ya provee ese marco; se implementó como una página responsive
-  normal, mobile-first (`PublicForm/PublicScreen.jsx`).
-- **`prefers-reduced-motion` y foco visible siempre** — ninguna animación
-  añadida (toasts, press states) ignora la preferencia de movimiento
-  reducido, y el anillo de foco nunca se desactiva (`tokens.css`).
-- **Cifras tabulares** (`font-variant-numeric: tabular-nums`) en stat cards
-  y códigos de confirmación para que no salten al actualizarse.
-- **Persistencia local** — los registros ya no se pierden al refrescar la
-  pantalla de recepción (localStorage), algo crítico dado que el PRD asume
-  el uso continuo del dispositivo durante el evento.
+Eliminar un usuario desde Admin borra su perfil de Firestore (pierde acceso
+a la app y a todo lo que las reglas protegen), pero la cuenta de Firebase
+Auth en sí no se puede borrar desde el cliente — necesitaría el Admin SDK
+o una Cloud Function. Para este caso de uso (un evento, roles de bajo
+riesgo) no se justificó agregar esa pieza extra.
 
-## Qué falta para producción (fuera de este alcance)
+## Concurrencia: por qué esto necesitaba Firestore
 
-Backend real. Esta versión usa `localStorage` como stand-in de Firestore —
-suficiente para demostrar y probar el flujo completo, pero no resuelve
-concurrencia entre varios dispositivos de recepción (PRD §16). Cuando haya
-credenciales de Firebase, el reemplazo es acotado: `state/store.jsx` pasa de
-`useReducer` a listeners de Firestore + transacciones para `ASSIGN_TABLE`;
-nada en `domain/` ni en los componentes necesita cambiar.
+El requisito no negociable del PRD (§16) es que una mesa nunca supere su
+capacidad aunque dos dispositivos de recepción asignen al mismo tiempo. Se
+verificó en vivo contra el emulador: dos asignaciones concurrentes a una
+mesa de 1 asiento — exactamente una gana, la otra recibe "ya está
+completa", y el contador nunca pasa de 1. `tables/{id}.occ` es un contador
+desnormalizado que se actualiza dentro de la misma transacción que mueve al
+participante (`firebase/collections.js:assignTable`), así que el chequeo de
+capacidad es una lectura de un solo documento, no un scan.
+
+## Qué se dejó fuera a propósito
+
+- **Cambiar el propio PIN / recuperarlo** — no hay UI para esto todavía.
+  El admin inicial debe cambiar su PIN eliminando y recreando su usuario,
+  o pídeme que agregue una pantalla de "cambiar PIN" cuando haga falta.
+- **Borrar la cuenta de Firebase Auth al eliminar un usuario** — ver
+  arriba, necesita Admin SDK/Cloud Function.
+- **Code-splitting del bundle de Firebase** (~670 KB sin comprimir, ~173 KB
+  gzip) — el build avisa que el chunk es grande. Separar `firebase/auth` en
+  un `import()` dinámico para que el formulario público no lo cargue
+  ayudaría a "cargas iniciales rápidas" (PRD §15), pero no es necesario
+  para que funcione. Se puede agregar si el tiempo de carga en el
+  formulario público resulta ser un problema real.
+- **Colección `events`** para nombre/fecha/ubicación configurables desde
+  Admin (PRD §24) — hoy siguen siendo una constante en
+  `src/domain/constants.js`. El PRD lo marca como algo que "puede
+  adaptarse durante la implementación", no como parte del MVP.

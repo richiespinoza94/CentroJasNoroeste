@@ -1,12 +1,66 @@
+import { useState } from 'react';
 import { useStore } from '../../state/store.jsx';
+import { getUsernameStatus, signInStaff, signUpStaff } from '../../firebase/auth.js';
+import { PIN_RE } from '../../domain/constants.js';
 import Field from '../ui/Field.jsx';
 import './LoginScreen.css';
 
 export default function LoginScreen() {
   const { state, dispatch } = useStore();
   const { loginStep, loginUsername, loginPinA, loginPinB, loginPinEnter, loginError } = state;
+  const [busy, setBusy] = useState(false);
 
   const digits = (v) => v.replace(/\D/g, '').slice(0, 4);
+
+  async function handleContinue() {
+    if (!loginUsername.trim()) return;
+    setBusy(true);
+    try {
+      const { status } = await getUsernameStatus(loginUsername);
+      if (status === 'unknown') dispatch({ type: 'LOGIN_SET_STEP', step: 'not-found' });
+      else if (status === 'pending') dispatch({ type: 'LOGIN_SET_STEP', step: 'create-pin' });
+      else dispatch({ type: 'LOGIN_SET_STEP', step: 'pin' });
+    } catch {
+      dispatch({ type: 'LOGIN_SET_STEP', step: 'username', error: 'No se pudo verificar el usuario. Revisa tu conexión.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreatePin() {
+    if (!PIN_RE.test(loginPinA)) {
+      dispatch({ type: 'LOGIN_SET_STEP', step: 'create-pin', error: 'El PIN debe tener 4 dígitos.' });
+      return;
+    }
+    if (loginPinA !== loginPinB) {
+      dispatch({ type: 'LOGIN_SET_STEP', step: 'create-pin', error: 'Los PIN no coinciden.' });
+      return;
+    }
+    setBusy(true);
+    try {
+      await signUpStaff(loginUsername, loginPinA);
+      // App.jsx advances off the login screen once AuthProvider's context
+      // actually reflects the new session — see the comment there for why
+      // navigating from here directly is racy.
+      dispatch({ type: 'LOGIN_RESET_ALL' });
+    } catch (err) {
+      dispatch({ type: 'LOGIN_SET_STEP', step: 'create-pin', error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSubmitPin() {
+    setBusy(true);
+    try {
+      await signInStaff(loginUsername, loginPinEnter);
+      dispatch({ type: 'LOGIN_RESET_ALL' });
+    } catch (err) {
+      dispatch({ type: 'LOGIN_SET_STEP', step: 'pin', error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="login-card">
@@ -14,7 +68,7 @@ export default function LoginScreen() {
 
       {loginStep === 'username' && (
         <>
-          <Field id="loginUsername" label="Usuario">
+          <Field id="loginUsername" label="Usuario" error={loginError}>
             {(a) => (
               <input
                 {...a}
@@ -23,13 +77,13 @@ export default function LoginScreen() {
                 autoComplete="username"
                 value={loginUsername}
                 onChange={(e) => dispatch({ type: 'LOGIN_SET_USERNAME', value: e.target.value })}
-                onKeyDown={(e) => e.key === 'Enter' && dispatch({ type: 'LOGIN_CONTINUE' })}
+                onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
                 placeholder="ej. fiorella"
               />
             )}
           </Field>
-          <button type="button" className="login-card__primary press" onClick={() => dispatch({ type: 'LOGIN_CONTINUE' })}>
-            Continuar
+          <button type="button" className="login-card__primary press" disabled={busy} onClick={handleContinue}>
+            {busy ? 'Verificando…' : 'Continuar'}
           </button>
         </>
       )}
@@ -75,7 +129,7 @@ export default function LoginScreen() {
                 maxLength={4}
                 value={loginPinB}
                 onChange={(e) => dispatch({ type: 'LOGIN_SET_PIN_B', value: digits(e.target.value) })}
-                onKeyDown={(e) => e.key === 'Enter' && dispatch({ type: 'CREATE_PIN' })}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreatePin()}
                 placeholder="Confirmar PIN"
               />
             )}
@@ -85,8 +139,8 @@ export default function LoginScreen() {
               {loginError}
             </span>
           )}
-          <button type="button" className="login-card__accent press" onClick={() => dispatch({ type: 'CREATE_PIN' })}>
-            Crear PIN e ingresar
+          <button type="button" className="login-card__accent press" disabled={busy} onClick={handleCreatePin}>
+            {busy ? 'Creando…' : 'Crear PIN e ingresar'}
           </button>
           <button type="button" className="login-card__link press" onClick={() => dispatch({ type: 'LOGIN_BACK' })}>
             Volver
@@ -109,7 +163,7 @@ export default function LoginScreen() {
                 maxLength={4}
                 value={loginPinEnter}
                 onChange={(e) => dispatch({ type: 'LOGIN_SET_PIN_ENTER', value: digits(e.target.value) })}
-                onKeyDown={(e) => e.key === 'Enter' && dispatch({ type: 'SUBMIT_PIN' })}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmitPin()}
                 placeholder="PIN"
               />
             )}
@@ -119,8 +173,8 @@ export default function LoginScreen() {
               {loginError}
             </span>
           )}
-          <button type="button" className="login-card__primary press" onClick={() => dispatch({ type: 'SUBMIT_PIN' })}>
-            Ingresar
+          <button type="button" className="login-card__primary press" disabled={busy} onClick={handleSubmitPin}>
+            {busy ? 'Ingresando…' : 'Ingresar'}
           </button>
           <button type="button" className="login-card__link press" onClick={() => dispatch({ type: 'LOGIN_BACK' })}>
             Volver

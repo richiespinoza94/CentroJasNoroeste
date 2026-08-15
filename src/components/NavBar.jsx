@@ -1,13 +1,22 @@
 import { useStore } from '../state/store.jsx';
+import { useAuth } from '../firebase/AuthProvider.jsx';
+import { signOutStaff } from '../firebase/auth.js';
 import { ROLE_LABELS } from '../domain/constants.js';
 import './NavBar.css';
 
 export default function NavBar() {
   const { state, dispatch } = useStore();
-  const isLoggedIn = !!state.loggedInUser;
-  const isAdmin = isLoggedIn && state.loggedInUser.role === 'admin';
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+  const isAdmin = isLoggedIn && user.role === 'admin';
 
   const nav = (screen) => dispatch({ type: 'NAV', screen });
+
+  async function handleLogout() {
+    await signOutStaff();
+    dispatch({ type: 'LOGIN_RESET_ALL' });
+    nav('publico');
+  }
 
   return (
     <nav className="navbar" aria-label="Navegación principal">
@@ -38,9 +47,9 @@ export default function NavBar() {
       {isLoggedIn && (
         <div className="navbar__session">
           <span className="navbar__session-label">
-            {state.loggedInUser.username} · {ROLE_LABELS[state.loggedInUser.role]}
+            {user.username} · {ROLE_LABELS[user.role]}
           </span>
-          <button type="button" className="navbar__logout press" onClick={() => dispatch({ type: 'LOGOUT' })}>
+          <button type="button" className="navbar__logout press" onClick={handleLogout}>
             Salir
           </button>
         </div>
