@@ -48,7 +48,7 @@ service cloud.firestore {
           && whatsapp.matches('^9[0-9]{8}$')
           && d.status == 'pendiente'
           && d.tableId == null
-          && d.categoria == 'participante'
+          && d.categoria in ['Miembro', 'Invitado']
           && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 40
           && d.apellidos is string && d.apellidos.size() > 0 && d.apellidos.size() <= 50;
       }

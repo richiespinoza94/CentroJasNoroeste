@@ -4,6 +4,7 @@ import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
 import { validateManual } from '../../domain/validation.js';
 import { registerManual } from '../../firebase/collections.js';
+import { CATEGORIAS } from '../../domain/constants.js';
 import Field from '../ui/Field.jsx';
 import './ManualTab.css';
 
@@ -79,9 +80,11 @@ export default function ManualTab() {
       <Field id="manualCategoria" label="Categoría">
         {(a) => (
           <select {...a} value={manual.categoria} onChange={(e) => setManual({ categoria: e.target.value })}>
-            <option value="participante">Participante</option>
-            <option value="programa">Programa</option>
-            <option value="staff">Staff</option>
+            {CATEGORIAS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
         )}
       </Field>

@@ -11,7 +11,7 @@ const EMPTY_FORM = {
   apellidos: '',
   fechaNacimiento: '',
   sexo: '',
-  tipoParticipante: '',
+  categoria: '',
   whatsapp: '',
   estaca: '',
   barrio: '',
@@ -20,7 +20,7 @@ const EMPTY_FORM = {
   privacidad: false,
 };
 
-const EMPTY_MANUAL = { nombre: '', apellidos: '', whatsapp: '', estaca: '', barrio: '', categoria: 'participante' };
+const EMPTY_MANUAL = { nombre: '', apellidos: '', whatsapp: '', estaca: '', barrio: '', categoria: 'Miembro' };
 
 const initialState = {
   screen: 'publico',

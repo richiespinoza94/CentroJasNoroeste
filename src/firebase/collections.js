@@ -75,11 +75,10 @@ export function registerParticipant(form) {
     nombre: form.nombre.trim(),
     apellidos: form.apellidos.trim(),
     sexo: form.sexo,
-    tipoParticipante: form.tipoParticipante,
     estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
     barrio: form.barrio.trim(),
     correo: form.correo,
-    categoria: 'participante',
+    categoria: form.categoria,
     status: 'pendiente',
     tableId: null,
   });
@@ -90,7 +89,6 @@ export function registerManual(m) {
     nombre: m.nombre.trim(),
     apellidos: m.apellidos.trim(),
     sexo: '',
-    tipoParticipante: 'Miembro',
     estaca: m.estaca,
     barrio: m.barrio.trim(),
     correo: '',
@@ -102,6 +100,11 @@ export function registerManual(m) {
 
 export function checkIn(whatsapp) {
   return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
+}
+
+/** Undo an accidental check-in — back to "pendiente", only valid before a table was assigned. */
+export function revertCheckIn(whatsapp) {
+  return updateDoc(doc(db, 'participants', whatsapp), { status: 'pendiente', updatedAt: serverTimestamp() });
 }
 
 /**

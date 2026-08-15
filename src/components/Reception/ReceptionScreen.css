@@ -49,3 +49,10 @@
   font-size: 13px;
   padding: 40px 0;
 }
+
+.reception__dist-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: var(--space-4);
+}

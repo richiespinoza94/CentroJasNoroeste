@@ -40,4 +40,5 @@
 
 .dist-row__fill {
   height: 100%;
+  transition: width var(--motion-base) var(--ease-out);
 }

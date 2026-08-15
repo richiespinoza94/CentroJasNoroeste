@@ -5,12 +5,37 @@ formal del Centro JAS Noroeste. React (Vite) + Firestore en tiempo real,
 implementada a partir del prototipo diseñado en Claude Design
 (`Centro JAS - La Velada.dc.html`).
 
+## Categoría estandarizada (Miembro / Invitado / Líder / Staff)
+
+Antes había dos campos parcialmente superpuestos: "tipo" (Miembro/Invitado)
+en el formulario y una "categoría de mesa" (participante/programa/staff)
+separada, más un tercer vocabulario en `reservedFor` de las mesas. Ahora es
+**un solo campo `categoria`**, mismo valor en todos lados:
+
+- **Formulario público**: solo puede elegir `Miembro` o `Invitado` — nadie
+  se autodeclara Líder o Staff desde su teléfono (`firestore.rules` lo
+  bloquea también del lado del servidor, no solo en la UI).
+- **Registro manual** (recepción): puede elegir cualquiera de las 4 —
+  `Miembro`, `Invitado`, `Líder`, `Staff` — porque lo hace un staff
+  autenticado, es un registro mediado.
+- **Mesas reservadas**: el `reservedFor` de una mesa usa el mismo
+  vocabulario (`Líder`, `Staff`, `Invitado`) y se compara directo contra la
+  `categoria` de la persona — sin tabla de traducción intermedia.
+
+> ⚠️ **Si ya tenías datos cargados con el esquema viejo** (`categoria:
+> 'participante'/'programa'/'staff'` o una mesa `reservedFor: 'programa'`),
+> hay que migrarlos a mano antes de desplegar esta versión — de lo
+> contrario esas personas/mesas dejan de matchear con la lógica de
+> recomendación (quedan sin categoría reconocida). Es un vistazo rápido en
+> la consola de Firestore dado el volumen esperado del evento; avisame si
+> querés que te arme un script de migración en vez de hacerlo a mano.
+
 ## Perfiles / pantallas
 
 | Perfil | Pantalla | Ruta en la app |
 |---|---|---|
 | Asistente (público) | Formulario de registro + confirmación con código | `Formulario` en el nav |
-| Staff (recepción) | Buscar/check-in, vista de mesas, registro manual, dashboard | Login → `Recepción` |
+| Staff (recepción) | Buscar/check-in, vista de mesas, registro manual, dashboard (con avance por estaca/barrio y deshacer rápido) | Login → `Recepción` |
 | Admin | Dashboard, distribución por estaca/barrio, config. de mesas, usuarios | Login (rol admin) → `Admin` |
 
 ## Setup del proyecto Firebase (una sola vez)

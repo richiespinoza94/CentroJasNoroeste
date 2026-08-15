@@ -7,6 +7,7 @@
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { DEFAULT_TABLES } from '../src/domain/constants.js';
 
 // Keep these two in sync with src/firebase/auth.js — duplicated on purpose,
 // the Admin SDK and the client SDK can't share a module cleanly, and it's
@@ -14,18 +15,6 @@ import { getAuth } from 'firebase-admin/auth';
 const EMAIL_DOMAIN = 'login.centrojasnoroeste.app';
 const deriveEmail = (username) => `${username.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
 const derivePassword = (pin) => `cjn-${pin}-pin`;
-
-const DEFAULT_TABLES = [
-  { id: 1, name: 'Mesa 1', capacity: 10, reservedFor: null },
-  { id: 2, name: 'Mesa 2', capacity: 10, reservedFor: null },
-  { id: 3, name: 'Mesa 3', capacity: 10, reservedFor: null },
-  { id: 4, name: 'Mesa 4', capacity: 10, reservedFor: null },
-  { id: 5, name: 'Mesa 5', capacity: 10, reservedFor: null },
-  { id: 6, name: 'Mesa 6', capacity: 10, reservedFor: null },
-  { id: 7, name: 'Mesa 7', capacity: 10, reservedFor: null },
-  { id: 8, name: 'Mesa 8', capacity: 10, reservedFor: null },
-  { id: 9, name: 'Mesa Programa', capacity: 8, reservedFor: 'programa' },
-];
 
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();

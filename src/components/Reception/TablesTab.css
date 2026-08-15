@@ -1,5 +1,8 @@
 .tables-grid {
   display: grid;
+  /* auto-fill + minmax reflows on its own at any width — 2 columns on a
+     360px Android phone, 2-3 on iOS, up to 6 on desktop — no breakpoints
+     needed. */
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
 }
@@ -10,6 +13,18 @@
   padding: var(--space-4);
   border-top: 4px solid var(--line-200);
   box-shadow: var(--shadow-card);
+  transition: border-top-color var(--motion-base) var(--ease-out);
+}
+
+/* A table's occupancy changes live from another reception device's
+   Firestore write — a brief highlight makes that update visible instead of
+   the numbers just silently jumping. */
+@keyframes table-card-pulse {
+  0% { box-shadow: 0 0 0 3px var(--gold-500), var(--shadow-card); }
+  100% { box-shadow: var(--shadow-card); }
+}
+.table-card--updated {
+  animation: table-card-pulse 900ms var(--ease-out);
 }
 
 .table-card__name {
@@ -35,6 +50,7 @@
 }
 .table-card__fill {
   height: 100%;
+  transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
 }
 
 .table-card__status {

@@ -1,4 +1,6 @@
-import { RESERVED_LABELS } from './constants.js';
+import { CATEGORIAS } from './constants.js';
+
+const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
 
 export function computeStatCards(participants, tables) {
   const capacidadTotal = tables.reduce((a, t) => a + t.capacity, 0);
@@ -10,9 +12,7 @@ export function computeStatCards(participants, tables) {
     { label: 'Registrados', value: participants.length },
     { label: 'Presentes', value: confirmados },
     { label: 'Pendientes', value: participants.filter((p) => p.status === 'pendiente').length },
-    { label: 'Participantes', value: participants.filter((p) => p.categoria === 'participante').length },
-    { label: 'Programa', value: participants.filter((p) => p.categoria === 'programa').length },
-    { label: 'Staff', value: participants.filter((p) => p.categoria === 'staff').length },
+    ...CATEGORIAS.map((c) => ({ label: CATEGORIA_PLURAL[c], value: participants.filter((p) => p.categoria === c).length })),
     { label: 'Capacidad total', value: capacidadTotal },
     { label: 'Espacios ocupados', value: ocupados },
     { label: 'Espacios libres', value: capacidadTotal - ocupados },
@@ -40,7 +40,7 @@ export function computeTableCards(tables) {
     }
     if (t.reservedFor) {
       accentColor = 'var(--gold-500)';
-      statusLabel = `${RESERVED_LABELS[t.reservedFor]} · ${statusLabel}`;
+      statusLabel = `${t.reservedFor} · ${statusLabel}`;
     }
     return { id: t.id, name: t.name, capacity: t.capacity, occ, pct, accentColor, statusColor, statusLabel };
   });

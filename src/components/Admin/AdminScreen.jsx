@@ -27,17 +27,8 @@ export default function AdminScreen() {
       </div>
 
       <div className="admin__dist-row">
-        <DistributionBars
-          title="Distribución por estaca"
-          rows={computeEstacaDist(participants).map((r) => ({ label: r.label, count: r.count, pct: r.pct }))}
-          color="var(--navy-800)"
-        />
-        <DistributionBars
-          title="Distribución por barrio"
-          rows={computeBarrioDist(participants).map((r) => ({ label: r.label, count: r.count, pct: r.pct }))}
-          color="var(--gold-500)"
-          scroll
-        />
+        <DistributionBars title="Avance por estaca" rows={computeEstacaDist(participants)} color="var(--navy-800)" />
+        <DistributionBars title="Detalle por barrio" rows={computeBarrioDist(participants)} color="var(--gold-500)" scroll />
       </div>
 
       <TablesConfig tables={tables} />

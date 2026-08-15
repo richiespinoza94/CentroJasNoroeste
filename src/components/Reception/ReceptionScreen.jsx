@@ -2,11 +2,12 @@ import { useStore } from '../../state/store.jsx';
 import { useAuth } from '../../firebase/AuthProvider.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { ROLE_LABELS } from '../../domain/constants.js';
-import { computeStatCards } from '../../domain/stats.js';
+import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../domain/stats.js';
 import SearchTab from './SearchTab.jsx';
 import TablesTab from './TablesTab.jsx';
 import ManualTab from './ManualTab.jsx';
 import StatCards from '../shared/StatCards.jsx';
+import DistributionBars from '../shared/DistributionBars.jsx';
 import './ReceptionScreen.css';
 
 const TABS = [
@@ -55,7 +56,15 @@ export default function ReceptionScreen() {
           {receptionTab === 'buscar' && <SearchTab />}
           {receptionTab === 'mesas' && <TablesTab />}
           {receptionTab === 'manual' && <ManualTab />}
-          {receptionTab === 'dashboard' && <StatCards cards={computeStatCards(participants, tables)} />}
+          {receptionTab === 'dashboard' && (
+            <>
+              <StatCards cards={computeStatCards(participants, tables)} />
+              <div className="reception__dist-row">
+                <DistributionBars title="Avance por estaca" rows={computeEstacaDist(participants)} color="var(--navy-800)" />
+                <DistributionBars title="Detalle por barrio" rows={computeBarrioDist(participants)} color="var(--gold-500)" scroll />
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

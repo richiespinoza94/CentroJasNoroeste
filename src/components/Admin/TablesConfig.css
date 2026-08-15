@@ -5,6 +5,16 @@
   align-items: flex-end;
   padding: 8px 4px;
   border-bottom: 1px solid var(--cream-50);
+  border-radius: 6px;
+  transition: background-color var(--motion-base) var(--ease-out);
+}
+
+@keyframes tables-config-row-pulse {
+  0% { background-color: color-mix(in srgb, var(--gold-500) 18%, transparent); }
+  100% { background-color: transparent; }
+}
+.tables-config__row--updated {
+  animation: tables-config-row-pulse 900ms var(--ease-out);
 }
 
 .tables-config__name {
@@ -42,9 +52,29 @@
 }
 
 .tables-config__occ {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-size: 12.5px;
   color: var(--ink-300);
   align-self: center;
+  min-width: 64px;
+}
+
+.tables-config__occ-track {
+  display: block;
+  height: 5px;
+  width: 64px;
+  background: var(--cream-50);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tables-config__occ-fill {
+  display: block;
+  height: 100%;
+  background: var(--navy-800);
+  transition: width var(--motion-base) var(--ease-out);
 }
 
 .tables-config__delete {

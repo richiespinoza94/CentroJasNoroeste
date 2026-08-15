@@ -11,13 +11,7 @@
  */
 export function recommendTables(person, tables) {
   return tables
-    .filter((t) => {
-      if (!t.reservedFor) return true;
-      if (t.reservedFor === 'staff') return person.categoria === 'staff';
-      if (t.reservedFor === 'programa') return person.categoria === 'programa';
-      if (t.reservedFor === 'invitado') return person.tipoParticipante === 'Invitado';
-      return true;
-    })
+    .filter((t) => !t.reservedFor || t.reservedFor === person.categoria)
     .map((t) => ({ id: t.id, name: t.name, spacesLeft: t.capacity - (t.occ || 0) }))
     .filter((t) => t.spacesLeft > 0)
     .sort((a, b) => a.spacesLeft - b.spacesLeft)

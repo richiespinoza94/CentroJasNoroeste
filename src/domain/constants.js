@@ -19,10 +19,22 @@ export const DEFAULT_TABLES = [
   { id: 6, name: 'Mesa 6', capacity: 10, reservedFor: null },
   { id: 7, name: 'Mesa 7', capacity: 10, reservedFor: null },
   { id: 8, name: 'Mesa 8', capacity: 10, reservedFor: null },
-  { id: 9, name: 'Mesa Programa', capacity: 8, reservedFor: 'programa' },
+  { id: 9, name: 'Mesa Líderes', capacity: 8, reservedFor: 'Líder' },
 ];
 
-export const RESERVED_LABELS = { staff: 'Staff', programa: 'Programa', invitado: 'Invitados' };
+// One standardized category, used identically in the registration form,
+// manual registration, and table reservations — no more separate "tipo"
+// (Miembro/Invitado) vs "categoría de mesa" (participante/programa/staff)
+// vocabularies that only partially overlapped.
+export const CATEGORIAS = ['Miembro', 'Invitado', 'Líder', 'Staff'];
+// The public self-registration form can only pick these two — nobody
+// self-declares as Líder or Staff, that's only set via reception's
+// staff-mediated manual registration (see ManualTab.jsx).
+export const PUBLIC_CATEGORIAS = ['Miembro', 'Invitado'];
+// Table "reservedFor" values a table can be locked to. Same vocabulary as
+// CATEGORIAS on purpose — a table's reservedFor is checked directly against
+// a person's categoria (domain/tables.js), no translation layer needed.
+export const RESERVABLE_CATEGORIAS = ['Líder', 'Staff', 'Invitado'];
 
 export const STATUS_META = {
   pendiente: { label: 'Pendiente ingreso', bg: 'var(--warn-bg)', color: 'var(--warn-fg)' },
@@ -30,7 +42,6 @@ export const STATUS_META = {
   asignado: { label: 'Asignado a mesa', bg: 'var(--success-bg)', color: 'var(--success-fg)' },
 };
 
-export const CATEGORY_META = { participante: 'Participante', staff: 'Staff', programa: 'Programa' };
 export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };
 
 export const EVENT_INFO = {

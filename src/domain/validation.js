@@ -1,4 +1,4 @@
-import { NOMBRE_RE, WHATSAPP_RE, EMAIL_RE, SUSPICIOUS_EMAIL_WORDS } from './constants.js';
+import { NOMBRE_RE, WHATSAPP_RE, EMAIL_RE, SUSPICIOUS_EMAIL_WORDS, PUBLIC_CATEGORIAS } from './constants.js';
 
 export function ageFromDate(str) {
   if (!str) return null;
@@ -36,7 +36,7 @@ export function validateRegistration(form, participants) {
   }
 
   if (!form.sexo) e.sexo = 'Selecciona una opción.';
-  if (!form.tipoParticipante) e.tipoParticipante = 'Selecciona una opción.';
+  if (!PUBLIC_CATEGORIAS.includes(form.categoria)) e.categoria = 'Selecciona una opción.';
 
   if (!WHATSAPP_RE.test(form.whatsapp)) {
     e.whatsapp = 'Debe tener 9 dígitos y empezar con 9.';

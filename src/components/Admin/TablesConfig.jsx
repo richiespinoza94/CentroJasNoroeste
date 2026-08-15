@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
 import { addTable, removeTable, setTableCapacity, setTableReserved } from '../../firebase/collections.js';
+import { RESERVABLE_CATEGORIAS } from '../../domain/constants.js';
+import { useChangedIds } from '../../hooks/useChangedIds.js';
 import { TrashIcon } from '../ui/Icon.jsx';
 import './TablesConfig.css';
+
+const RESERVED_OPTION_LABEL = { Líder: 'Solo líderes', Staff: 'Solo staff', Invitado: 'Solo invitados' };
 
 export default function TablesConfig({ tables }) {
   const toast = useToast();
   const [busyId, setBusyId] = useState(null);
   const [adding, setAdding] = useState(false);
+  const getOcc = useCallback((t) => t.occ || 0, []);
+  const justChanged = useChangedIds(tables, getOcc);
 
   async function handleRemove(t) {
     if (!window.confirm(`¿Eliminar "${t.name}"? Esta acción no se puede deshacer.`)) return;
@@ -47,8 +53,9 @@ export default function TablesConfig({ tables }) {
         {tables.map((t) => {
           const occ = t.occ || 0;
           const canDelete = occ === 0;
+          const pct = Math.round((occ / t.capacity) * 100);
           return (
-            <div className="tables-config__row" key={t.id}>
+            <div className={`tables-config__row${justChanged.has(t.id) ? ' tables-config__row--updated' : ''}`} key={t.id}>
               <span className="tables-config__name">{t.name}</span>
 
               <div className="tables-config__field tables-config__field-cap">
@@ -71,13 +78,22 @@ export default function TablesConfig({ tables }) {
                 </label>
                 <select id={`res-${t.id}`} value={t.reservedFor || ''} onChange={(e) => setTableReserved(t.id, e.target.value)}>
                   <option value="">General (todos)</option>
-                  <option value="staff">Solo staff</option>
-                  <option value="programa">Solo programa</option>
-                  <option value="invitado">Solo invitados</option>
+                  {RESERVABLE_CATEGORIAS.map((c) => (
+                    <option key={c} value={c}>
+                      {RESERVED_OPTION_LABEL[c]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <span className="tables-config__occ tabular">{occ} ocup.</span>
+              <div className="tables-config__occ">
+                <span className="tabular">
+                  {occ}/{t.capacity}
+                </span>
+                <span className="tables-config__occ-track">
+                  <span className="tables-config__occ-fill" style={{ width: `${pct}%` }} />
+                </span>
+              </div>
 
               {canDelete && (
                 <button type="button" className="tables-config__delete press" disabled={busyId === t.id} onClick={() => handleRemove(t)} aria-label={`Eliminar ${t.name}`}>

@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
-import { ESTACAS, EVENT_INFO } from '../../domain/constants.js';
+import { ESTACAS, EVENT_INFO, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
 import { registerParticipant } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
 import './RegistrationForm.css';
 
-const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'tipoParticipante', 'whatsapp', 'estaca', 'estacaOtra', 'barrio', 'correo', 'privacidad'];
+const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'estacaOtra', 'barrio', 'correo', 'privacidad'];
 
 export default function RegistrationForm() {
   const { state, dispatch } = useStore();
@@ -128,12 +128,15 @@ export default function RegistrationForm() {
               </select>
             )}
           </Field>
-          <Field id="tipoParticipante" label="Tipo" error={showErr('tipoParticipante')}>
+          <Field id="categoria" label="Categoría" error={showErr('categoria')}>
             {(a) => (
-              <select {...a} ref={(el) => (refs.current.tipoParticipante = el)} value={form.tipoParticipante} onChange={(e) => setForm({ tipoParticipante: e.target.value })} onBlur={() => touch('tipoParticipante')}>
+              <select {...a} ref={(el) => (refs.current.categoria = el)} value={form.categoria} onChange={(e) => setForm({ categoria: e.target.value })} onBlur={() => touch('categoria')}>
                 <option value="">Elegir</option>
-                <option value="Miembro">Miembro</option>
-                <option value="Invitado">Invitado</option>
+                {PUBLIC_CATEGORIAS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             )}
           </Field>

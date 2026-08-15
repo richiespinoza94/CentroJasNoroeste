@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
-import { STATUS_META, CATEGORY_META } from '../../domain/constants.js';
+import { STATUS_META } from '../../domain/constants.js';
 import { recommendTables } from '../../domain/tables.js';
-import { checkIn, assignTable, unassignTable } from '../../firebase/collections.js';
+import { checkIn, assignTable, unassignTable, revertCheckIn } from '../../firebase/collections.js';
+import RecentActivity from './RecentActivity.jsx';
 import './SearchTab.css';
 
 export default function SearchTab() {
@@ -57,10 +58,22 @@ export default function SearchTab() {
       setBusy(false);
     }
   }
+  async function handleRevertCheckIn(p) {
+    setBusy(true);
+    try {
+      await revertCheckIn(p.id);
+      toast(`${p.nombre}: check-in deshecho, vuelve a "pendiente".`);
+    } catch (err) {
+      toast(err.message || 'No se pudo deshacer.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="search-tab">
       <div className="search-tab__list-panel">
+        <RecentActivity participants={participants} onSelect={(id) => dispatch({ type: 'SELECT_PARTICIPANT', id })} />
         <input
           type="text"
           className="search-tab__input"
@@ -105,7 +118,7 @@ export default function SearchTab() {
               {selected.nombre} {selected.apellidos}
             </div>
             <div className="search-tab__detail-meta">
-              {selected.estaca} · {selected.barrio} · {selected.tipoParticipante} · {CATEGORY_META[selected.categoria]}
+              {selected.estaca} · {selected.barrio} · {selected.categoria}
             </div>
             <div className="search-tab__detail-meta">WhatsApp: {selected.whatsapp}</div>
             <span
@@ -133,6 +146,9 @@ export default function SearchTab() {
                   ))}
                   {recs.length === 0 && <div className="search-tab__norecs">No hay mesas disponibles para esta categoría.</div>}
                 </div>
+                <button type="button" className="search-tab__change press" style={{ marginTop: 10 }} disabled={busy} onClick={() => handleRevertCheckIn(selected)}>
+                  Deshacer check-in
+                </button>
               </div>
             )}
 

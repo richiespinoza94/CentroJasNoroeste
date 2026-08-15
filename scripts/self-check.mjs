@@ -16,7 +16,7 @@ const validForm = {
   apellidos: 'Ramírez Torres',
   fechaNacimiento: '2000-01-01',
   sexo: 'F',
-  tipoParticipante: 'Miembro',
+  categoria: 'Miembro',
   whatsapp: '955123456',
   estaca: 'Ventanilla',
   barrio: 'Naval',
@@ -31,12 +31,17 @@ check('valid form has no errors', () => {
 
 check('empty form fails required fields', () => {
   const errs = validateRegistration(
-    { nombre: '', apellidos: '', fechaNacimiento: '', sexo: '', tipoParticipante: '', whatsapp: '', estaca: '', barrio: '', estacaOtra: '', correo: '', privacidad: false },
+    { nombre: '', apellidos: '', fechaNacimiento: '', sexo: '', categoria: '', whatsapp: '', estaca: '', barrio: '', estacaOtra: '', correo: '', privacidad: false },
     []
   );
-  for (const f of ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'tipoParticipante', 'whatsapp', 'estaca', 'barrio', 'privacidad']) {
+  for (const f of ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'barrio', 'privacidad']) {
     assert.ok(errs[f], `expected error on ${f}`);
   }
+});
+
+check('categoria only accepts the public-safe values (Miembro/Invitado)', () => {
+  assert.ok(validateRegistration({ ...validForm, categoria: 'Staff' }, []).categoria, 'a public submitter should not be able to self-declare as Staff');
+  assert.ok(validateRegistration({ ...validForm, categoria: 'Líder' }, []).categoria, 'a public submitter should not be able to self-declare as Líder');
 });
 
 check('whatsapp must start with 9 and have 9 digits', () => {
@@ -89,18 +94,18 @@ check('validateManual requires whatsapp + estaca/barrio, no duplicates', () => {
 const tables = [
   { id: 1, name: 'Mesa 1', capacity: 10, reservedFor: null, occ: 0 },
   { id: 2, name: 'Mesa 2', capacity: 10, reservedFor: null, occ: 0 },
-  { id: 9, name: 'Mesa Programa', capacity: 8, reservedFor: 'programa', occ: 0 },
+  { id: 9, name: 'Mesa Líderes', capacity: 8, reservedFor: 'Líder', occ: 0 },
 ];
 
 check('recommendTables excludes reserved tables for the wrong category', () => {
-  const staffPerson = { categoria: 'staff' };
+  const staffPerson = { categoria: 'Staff' };
   const recs = recommendTables(staffPerson, tables);
-  assert.ok(!recs.some((r) => r.id === 9), 'staff should not be recommended the programa table');
+  assert.ok(!recs.some((r) => r.id === 9), 'staff should not be recommended the líderes table');
 });
 
 check('recommendTables includes the reserved table for its own category', () => {
-  const programaPerson = { categoria: 'programa' };
-  const recs = recommendTables(programaPerson, tables);
+  const liderPerson = { categoria: 'Líder' };
+  const recs = recommendTables(liderPerson, tables);
   assert.ok(recs.some((r) => r.id === 9));
 });
 
@@ -109,13 +114,13 @@ check('recommendTables sorts tightest-fit first to avoid fragmentation', () => {
     { id: 1, name: 'Mesa 1', capacity: 10, reservedFor: null, occ: 8 }, // 2 left
     { id: 2, name: 'Mesa 2', capacity: 10, reservedFor: null, occ: 0 }, // 10 left
   ];
-  const recs = recommendTables({ categoria: 'participante' }, partial);
+  const recs = recommendTables({ categoria: 'Miembro' }, partial);
   assert.equal(recs[0].id, 1, 'tightest fit (2 left) should come before an empty table (10 left)');
 });
 
 check('recommendTables excludes full tables and caps at 3 results', () => {
   const manyTables = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, name: `T${i}`, capacity: 10, reservedFor: null, occ: 0 }));
-  const recs = recommendTables({ categoria: 'participante' }, manyTables);
+  const recs = recommendTables({ categoria: 'Miembro' }, manyTables);
   assert.equal(recs.length, 3);
 });
 
