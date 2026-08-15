@@ -1,0 +1,30 @@
+.manual-tab {
+  max-width: 420px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.manual-tab__title {
+  font-weight: 800;
+  color: var(--navy-800);
+  font-size: 15px;
+}
+
+.manual-tab__submit {
+  background: var(--navy-800);
+  color: var(--white);
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.manual-tab__success {
+  font-size: 12px;
+  color: var(--success-fg);
+}

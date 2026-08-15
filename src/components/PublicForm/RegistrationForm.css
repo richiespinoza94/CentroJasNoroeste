@@ -1,0 +1,74 @@
+.reg-form {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.reg-form__header {
+  background: var(--navy-800);
+  padding: 22px 20px 18px;
+  color: var(--white);
+}
+
+.reg-form__title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.reg-form__meta {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+.reg-form__host {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.reg-form__body {
+  padding: 18px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.reg-form__intro {
+  font-size: 13px;
+  color: var(--ink-500);
+  line-height: 1.5;
+}
+
+.reg-form__row {
+  display: flex;
+  gap: 10px;
+}
+.reg-form__row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.reg-form__consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 4px;
+}
+.reg-form__consent-text {
+  font-size: 12.5px;
+  color: var(--ink-700);
+  line-height: 1.4;
+}
+
+.reg-form__submit {
+  margin-top: 8px;
+  background: var(--gold-500);
+  color: var(--navy-800);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 15px;
+  font-family: var(--font-display);
+}

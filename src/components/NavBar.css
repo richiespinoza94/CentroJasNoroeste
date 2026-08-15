@@ -1,0 +1,51 @@
+.navbar {
+  background: var(--navy-800);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-4);
+  flex-wrap: wrap;
+}
+
+.navbar__brand {
+  color: var(--white);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  margin-right: var(--space-2);
+}
+
+.navbar__btn {
+  background: transparent;
+  color: var(--white);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.navbar__btn[aria-current='page'] {
+  background: var(--gold-500);
+  color: var(--navy-800);
+}
+
+.navbar__session {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.navbar__session-label {
+  color: #b9c3d6;
+  font-size: 11.5px;
+}
+
+.navbar__logout {
+  background: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: var(--white);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}

@@ -1,0 +1,68 @@
+.users-config__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.users-config__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-50);
+  border-radius: 9px;
+  flex-wrap: wrap;
+  min-height: var(--touch-min);
+}
+
+.users-config__name {
+  font-weight: 700;
+  color: var(--navy-800);
+  font-size: 13.5px;
+}
+.users-config__meta {
+  font-size: 11.5px;
+  color: var(--ink-300);
+  margin-left: 8px;
+}
+
+.users-config__delete {
+  background: none;
+  color: var(--danger-500);
+  font-size: 12px;
+}
+
+.users-config__new {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.users-config__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 160px;
+}
+.users-config__field-label {
+  font-size: 10px;
+  color: var(--ink-200);
+}
+.users-config__field input,
+.users-config__field select {
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.users-config__create {
+  background: var(--gold-500);
+  color: var(--navy-800);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 12.5px;
+}

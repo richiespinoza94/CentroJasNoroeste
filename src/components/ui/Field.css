@@ -1,0 +1,24 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy-800);
+}
+
+.field__label-optional {
+  color: var(--ink-200);
+  font-weight: 400;
+}
+
+.field__control {
+  width: 100%;
+}
+
+.field__control--invalid {
+  border-color: var(--danger-500) !important;
+}

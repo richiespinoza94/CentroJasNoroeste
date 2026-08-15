@@ -1,0 +1,56 @@
+.tables-config__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--cream-50);
+}
+
+.tables-config__name {
+  flex: 1 1 90px;
+  font-weight: 700;
+  color: var(--navy-800);
+  font-size: 13.5px;
+  align-self: center;
+}
+
+.tables-config__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tables-config__field-cap {
+  flex: 1 1 90px;
+}
+.tables-config__field-res {
+  flex: 1 1 150px;
+}
+
+.tables-config__field-label {
+  font-size: 10px;
+  color: var(--ink-200);
+}
+
+.tables-config__field input,
+.tables-config__field select {
+  padding: 7px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  width: 100%;
+  min-height: 38px;
+}
+
+.tables-config__occ {
+  font-size: 12.5px;
+  color: var(--ink-300);
+  align-self: center;
+}
+
+.tables-config__delete {
+  background: none;
+  color: var(--danger-500);
+  align-self: center;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
