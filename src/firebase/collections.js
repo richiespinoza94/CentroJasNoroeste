@@ -122,6 +122,16 @@ export function revertNoTableNeeded(whatsapp) {
 }
 
 /**
+ * Corrige la categoría de alguien ya registrado (p.ej. se registró como
+ * Miembro y terminó sumándose al staff del evento). También sirve para
+ * migrar a mano un registro que quedó con el esquema viejo (categoria:
+ * 'participante'/'programa'/'staff') — ver nota del README.
+ */
+export function setCategoria(whatsapp, categoria) {
+  return updateDoc(doc(db, 'participants', whatsapp), { categoria, updatedAt: serverTimestamp() });
+}
+
+/**
  * Moves a participant onto a table, capacity-checked and race-safe: this is
  * the one operation the PRD calls out explicitly (§16) — two reception
  * devices assigning the last two seats at the same instant must never both

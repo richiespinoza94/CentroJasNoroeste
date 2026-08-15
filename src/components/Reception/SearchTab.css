@@ -99,6 +99,29 @@
   margin-top: 2px;
 }
 
+.search-tab__categoria-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.search-tab__categoria-label {
+  font-size: 11.5px;
+  color: var(--ink-200);
+}
+
+.search-tab__categoria-select {
+  min-height: var(--touch-min);
+  padding: 8px 10px;
+  border: 1.5px solid var(--line-200);
+  border-radius: var(--radius-sm);
+  background: var(--panel-50);
+  color: var(--ink-700);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
 .search-tab__checkin {
   margin-top: var(--space-4);
   width: 100%;

@@ -1,0 +1,128 @@
+diff --git a/src/components/Reception/SearchTab.css b/src/components/Reception/SearchTab.css
+index af816cb..f782889 100644
+--- a/src/components/Reception/SearchTab.css
++++ b/src/components/Reception/SearchTab.css
+@@ -99,6 +99,29 @@
+   margin-top: 2px;
+ }
+ 
++.search-tab__categoria-row {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  margin-top: 6px;
++}
++
++.search-tab__categoria-label {
++  font-size: 11.5px;
++  color: var(--ink-200);
++}
++
++.search-tab__categoria-select {
++  min-height: var(--touch-min);
++  padding: 8px 10px;
++  border: 1.5px solid var(--line-200);
++  border-radius: var(--radius-sm);
++  background: var(--panel-50);
++  color: var(--ink-700);
++  font-size: 12.5px;
++  font-weight: 700;
++}
++
+ .search-tab__checkin {
+   margin-top: var(--space-4);
+   width: 100%;
+diff --git a/src/components/Reception/SearchTab.jsx b/src/components/Reception/SearchTab.jsx
+index c25e148..6632199 100644
+--- a/src/components/Reception/SearchTab.jsx
++++ b/src/components/Reception/SearchTab.jsx
+@@ -2,9 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
+ import { useStore } from '../../state/store.jsx';
+ import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+ import { useToast } from '../../hooks/useToast.jsx';
+-import { STATUS_META } from '../../domain/constants.js';
++import { STATUS_META, CATEGORIAS } from '../../domain/constants.js';
+ import { recommendTables } from '../../domain/tables.js';
+-import { checkIn, assignTable, unassignTable, revertCheckIn, markNoTableNeeded, revertNoTableNeeded } from '../../firebase/collections.js';
++import {
++  checkIn,
++  assignTable,
++  unassignTable,
++  revertCheckIn,
++  markNoTableNeeded,
++  revertNoTableNeeded,
++  setCategoria,
++} from '../../firebase/collections.js';
+ import RecentActivity from './RecentActivity.jsx';
+ import './SearchTab.css';
+ 
+@@ -99,6 +107,18 @@ export default function SearchTab() {
+       setBusy(false);
+     }
+   }
++  async function handleSetCategoria(p, categoria) {
++    if (categoria === p.categoria) return;
++    setBusy(true);
++    try {
++      await setCategoria(p.id, categoria);
++      toast(`${p.nombre}: categoría cambiada a ${categoria}.`);
++    } catch (err) {
++      toast(err.message || 'No se pudo cambiar la categoría.', 'error');
++    } finally {
++      setBusy(false);
++    }
++  }
+ 
+   return (
+     <div className="search-tab">
+@@ -148,9 +168,28 @@ export default function SearchTab() {
+               {selected.nombre} {selected.apellidos}
+             </div>
+             <div className="search-tab__detail-meta">
+-              {selected.estaca} · {selected.barrio} · {selected.categoria}
++              {selected.estaca} · {selected.barrio}
+             </div>
+             <div className="search-tab__detail-meta">WhatsApp: {selected.whatsapp}</div>
++            <div className="search-tab__categoria-row">
++              <span className="search-tab__categoria-label">Categoría</span>
++              <select
++                className="search-tab__categoria-select"
++                value={selected.categoria}
++                disabled={busy}
++                onChange={(e) => handleSetCategoria(selected, e.target.value)}
++                aria-label="Cambiar categoría"
++              >
++                {!CATEGORIAS.includes(selected.categoria) && (
++                  <option value={selected.categoria}>{selected.categoria} (valor antiguo)</option>
++                )}
++                {CATEGORIAS.map((c) => (
++                  <option key={c} value={c}>
++                    {c}
++                  </option>
++                ))}
++              </select>
++            </div>
+             <span
+               className="badge"
+               style={{ display: 'inline-block', marginTop: 12, background: STATUS_META[selected.status].bg, color: STATUS_META[selected.status].color }}
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 8054338..182f491 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -121,6 +121,16 @@ export function revertNoTableNeeded(whatsapp) {
+   return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
+ }
+ 
++/**
++ * Corrige la categoría de alguien ya registrado (p.ej. se registró como
++ * Miembro y terminó sumándose al staff del evento). También sirve para
++ * migrar a mano un registro que quedó con el esquema viejo (categoria:
++ * 'participante'/'programa'/'staff') — ver nota del README.
++ */
++export function setCategoria(whatsapp, categoria) {
++  return updateDoc(doc(db, 'participants', whatsapp), { categoria, updatedAt: serverTimestamp() });
++}
++
+ /**
+  * Moves a participant onto a table, capacity-checked and race-safe: this is
+  * the one operation the PRD calls out explicitly (§16) — two reception
