@@ -7,6 +7,7 @@
 
 .search-tab__list-panel {
   flex: 1 1 320px;
+  min-width: 0;
   background: var(--white);
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -69,6 +70,7 @@
 
 .search-tab__detail {
   flex: 1 1 280px;
+  min-width: 0;
   background: var(--white);
   border-radius: var(--radius-md);
   padding: 18px;

@@ -1,0 +1,32 @@
+diff --git a/src/components/Reception/SearchTab.css b/src/components/Reception/SearchTab.css
+index 76d59c1..bf742af 100644
+--- a/src/components/Reception/SearchTab.css
++++ b/src/components/Reception/SearchTab.css
+@@ -7,6 +7,7 @@
+ 
+ .search-tab__list-panel {
+   flex: 1 1 320px;
++  min-width: 0;
+   background: var(--white);
+   border-radius: var(--radius-md);
+   padding: var(--space-4);
+@@ -69,6 +70,7 @@
+ 
+ .search-tab__detail {
+   flex: 1 1 280px;
++  min-width: 0;
+   background: var(--white);
+   border-radius: var(--radius-md);
+   padding: 18px;
+diff --git a/src/styles/tokens.css b/src/styles/tokens.css
+index a252ede..b1021c1 100644
+--- a/src/styles/tokens.css
++++ b/src/styles/tokens.css
+@@ -64,6 +64,7 @@ body,
+ 
+ body {
+   margin: 0;
++  overflow-x: hidden;
+   background: var(--cream-50);
+   color: var(--ink-900);
+   font-family: var(--font-body);
