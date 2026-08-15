@@ -1,0 +1,25 @@
+{
+  "name": "centro-jas-la-velada",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/self-check.mjs",
+    "seed": "node --env-file=.env.local scripts/seed-firestore.mjs",
+    "emulators": "firebase emulators:start --only auth,firestore",
+    "dev:emulator": "VITE_USE_FIREBASE_EMULATOR=true vite"
+  },
+  "dependencies": {
+    "firebase": "^11.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "firebase-admin": "^13.0.1",
+    "vite": "^5.4.11"
+  }
+}

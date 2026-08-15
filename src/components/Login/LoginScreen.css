@@ -1,0 +1,68 @@
+.login-card {
+  max-width: 360px;
+  width: 100%;
+  margin: 40px auto;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-card__title {
+  color: var(--navy-800);
+  font-size: 19px;
+}
+
+.login-card__hint {
+  font-size: 13px;
+  color: var(--ink-500);
+}
+
+.login-card__pin {
+  letter-spacing: 4px;
+  text-align: center;
+}
+
+.login-card__primary {
+  background: var(--navy-800);
+  color: var(--white);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.login-card__accent {
+  background: var(--gold-500);
+  color: var(--navy-800);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  font-family: var(--font-display);
+}
+
+.login-card__ghost {
+  background: none;
+  border: 1.5px solid var(--line-200);
+  color: var(--ink-500);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.login-card__link {
+  background: none;
+  color: var(--ink-300);
+  font-size: 12.5px;
+}
+
+.login-card__notice {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 13px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+}

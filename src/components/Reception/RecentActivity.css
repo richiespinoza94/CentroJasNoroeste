@@ -1,0 +1,58 @@
+.recent-activity {
+  margin-bottom: var(--space-3);
+}
+
+.recent-activity__title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-300);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.recent-activity__row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recent-activity__card {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1.5px solid var(--line-100);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+  max-width: 240px;
+}
+
+.recent-activity__name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--navy-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-activity__undo {
+  flex: 0 0 auto;
+  background: none;
+  color: var(--danger-500);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  min-height: 30px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.recent-activity__undo:hover {
+  background: color-mix(in srgb, var(--danger-500) 8%, transparent);
+}

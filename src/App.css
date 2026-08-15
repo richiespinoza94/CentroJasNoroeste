@@ -1,0 +1,17 @@
+.app-shell {
+  min-height: 100dvh;
+  background: var(--cream-50);
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-5) var(--space-3);
+}
+
+.app-main__inner {
+  width: 100%;
+}
