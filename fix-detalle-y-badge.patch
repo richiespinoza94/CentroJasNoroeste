@@ -1,0 +1,59 @@
+diff --git a/src/components/Reception/SearchTab.css b/src/components/Reception/SearchTab.css
+index bf742af..af816cb 100644
+--- a/src/components/Reception/SearchTab.css
++++ b/src/components/Reception/SearchTab.css
+@@ -31,14 +31,24 @@
+   padding: 11px 13px;
+   display: flex;
+   justify-content: space-between;
+-  align-items: center;
++  align-items: flex-start;
+   gap: var(--space-2);
+-  flex-wrap: wrap;
++  flex-wrap: nowrap;
+   text-align: left;
+   background: var(--white);
+   min-height: var(--touch-min);
+ }
+ 
++.search-tab__row-info {
++  flex: 1 1 auto;
++  min-width: 0;
++}
++
++.search-tab__row .badge {
++  flex: 0 0 auto;
++  margin-top: 2px;
++}
++
+ .search-tab__row[aria-pressed='true'] {
+   border-color: var(--gold-500);
+ }
+@@ -75,7 +85,6 @@
+   border-radius: var(--radius-md);
+   padding: 18px;
+   box-shadow: var(--shadow-card);
+-  min-height: 200px;
+ }
+ 
+ .search-tab__detail-name {
+@@ -157,5 +166,5 @@
+   color: var(--ink-200);
+   font-size: 13px;
+   text-align: center;
+-  padding: 40px 0;
++  padding: 14px 0;
+ }
+diff --git a/src/components/Reception/SearchTab.jsx b/src/components/Reception/SearchTab.jsx
+index 376201e..f5b074b 100644
+--- a/src/components/Reception/SearchTab.jsx
++++ b/src/components/Reception/SearchTab.jsx
+@@ -101,7 +101,7 @@ export default function SearchTab() {
+                 aria-pressed={selectedId === p.id}
+                 onClick={() => dispatch({ type: 'SELECT_PARTICIPANT', id: p.id })}
+               >
+-                <div>
++                <div className="search-tab__row-info">
+                   <div className="search-tab__name">
+                     {p.nombre} {p.apellidos}
+                   </div>

@@ -31,12 +31,22 @@
   padding: 11px 13px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   text-align: left;
   background: var(--white);
   min-height: var(--touch-min);
+}
+
+.search-tab__row-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-tab__row .badge {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .search-tab__row[aria-pressed='true'] {
@@ -75,7 +85,6 @@
   border-radius: var(--radius-md);
   padding: 18px;
   box-shadow: var(--shadow-card);
-  min-height: 200px;
 }
 
 .search-tab__detail-name {
@@ -157,5 +166,5 @@
   color: var(--ink-200);
   font-size: 13px;
   text-align: center;
-  padding: 40px 0;
+  padding: 14px 0;
 }

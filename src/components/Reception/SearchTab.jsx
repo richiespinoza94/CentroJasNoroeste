@@ -101,7 +101,7 @@ export default function SearchTab() {
                 aria-pressed={selectedId === p.id}
                 onClick={() => dispatch({ type: 'SELECT_PARTICIPANT', id: p.id })}
               >
-                <div>
+                <div className="search-tab__row-info">
                   <div className="search-tab__name">
                     {p.nombre} {p.apellidos}
                   </div>
