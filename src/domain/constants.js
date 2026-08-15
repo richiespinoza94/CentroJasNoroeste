@@ -40,6 +40,7 @@ export const STATUS_META = {
   pendiente: { label: 'Pendiente ingreso', bg: 'var(--warn-bg)', color: 'var(--warn-fg)' },
   presente: { label: 'Presente', bg: 'var(--navy-100)', color: 'var(--navy-800)' },
   asignado: { label: 'Asignado a mesa', bg: 'var(--success-bg)', color: 'var(--success-fg)' },
+  sin_mesa: { label: 'Staff · sin mesa', bg: 'var(--panel-50)', color: 'var(--ink-500)' },
 };
 
 export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };

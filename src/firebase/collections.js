@@ -108,6 +108,20 @@ export function revertCheckIn(whatsapp) {
 }
 
 /**
+ * Staff doesn't necessarily sit at a table — this closes that loop instead
+ * of leaving them stuck in "presente" showing an unresolved "mesas
+ * recomendadas" prompt every time someone looks them up.
+ */
+export function markNoTableNeeded(whatsapp) {
+  return updateDoc(doc(db, 'participants', whatsapp), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
+}
+
+/** Undo "sin mesa" — back to "presente", in case it was marked by mistake or plans changed. */
+export function revertNoTableNeeded(whatsapp) {
+  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
+}
+
+/**
  * Moves a participant onto a table, capacity-checked and race-safe: this is
  * the one operation the PRD calls out explicitly (§16) — two reception
  * devices assigning the last two seats at the same instant must never both

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
-import { unassignTable, revertCheckIn } from '../../firebase/collections.js';
+import { unassignTable, revertCheckIn, revertNoTableNeeded } from '../../firebase/collections.js';
 import { STATUS_META } from '../../domain/constants.js';
 import './RecentActivity.css';
 
@@ -31,6 +31,9 @@ export default function RecentActivity({ participants, onSelect }) {
       if (p.status === 'asignado') {
         await unassignTable(p.id);
         toast(`${p.nombre}: se deshizo la asignación de mesa.`);
+      } else if (p.status === 'sin_mesa') {
+        await revertNoTableNeeded(p.id);
+        toast(`${p.nombre}: vuelve a "presente".`);
       } else if (p.status === 'presente') {
         await revertCheckIn(p.id);
         toast(`${p.nombre}: se deshizo el check-in.`);

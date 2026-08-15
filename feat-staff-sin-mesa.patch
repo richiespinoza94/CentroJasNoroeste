@@ -1,0 +1,129 @@
+diff --git a/src/components/Reception/RecentActivity.jsx b/src/components/Reception/RecentActivity.jsx
+index bb3fdea..be488ee 100644
+--- a/src/components/Reception/RecentActivity.jsx
++++ b/src/components/Reception/RecentActivity.jsx
+@@ -1,6 +1,6 @@
+ import { useMemo, useState } from 'react';
+ import { useToast } from '../../hooks/useToast.jsx';
+-import { unassignTable, revertCheckIn } from '../../firebase/collections.js';
++import { unassignTable, revertCheckIn, revertNoTableNeeded } from '../../firebase/collections.js';
+ import { STATUS_META } from '../../domain/constants.js';
+ import './RecentActivity.css';
+ 
+@@ -31,6 +31,9 @@ export default function RecentActivity({ participants, onSelect }) {
+       if (p.status === 'asignado') {
+         await unassignTable(p.id);
+         toast(`${p.nombre}: se deshizo la asignación de mesa.`);
++      } else if (p.status === 'sin_mesa') {
++        await revertNoTableNeeded(p.id);
++        toast(`${p.nombre}: vuelve a "presente".`);
+       } else if (p.status === 'presente') {
+         await revertCheckIn(p.id);
+         toast(`${p.nombre}: se deshizo el check-in.`);
+diff --git a/src/components/Reception/SearchTab.jsx b/src/components/Reception/SearchTab.jsx
+index f5b074b..c25e148 100644
+--- a/src/components/Reception/SearchTab.jsx
++++ b/src/components/Reception/SearchTab.jsx
+@@ -4,7 +4,7 @@ import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+ import { useToast } from '../../hooks/useToast.jsx';
+ import { STATUS_META } from '../../domain/constants.js';
+ import { recommendTables } from '../../domain/tables.js';
+-import { checkIn, assignTable, unassignTable, revertCheckIn } from '../../firebase/collections.js';
++import { checkIn, assignTable, unassignTable, revertCheckIn, markNoTableNeeded, revertNoTableNeeded } from '../../firebase/collections.js';
+ import RecentActivity from './RecentActivity.jsx';
+ import './SearchTab.css';
+ 
+@@ -77,6 +77,28 @@ export default function SearchTab() {
+       setBusy(false);
+     }
+   }
++  async function handleNoTableNeeded(p) {
++    setBusy(true);
++    try {
++      await markNoTableNeeded(p.id);
++      toast(`${p.nombre}: marcado(a) sin mesa (staff).`);
++    } catch (err) {
++      toast(err.message || 'No se pudo marcar.', 'error');
++    } finally {
++      setBusy(false);
++    }
++  }
++  async function handleRevertNoTableNeeded(p) {
++    setBusy(true);
++    try {
++      await revertNoTableNeeded(p.id);
++      toast(`${p.nombre}: vuelve a "presente".`);
++    } catch (err) {
++      toast(err.message || 'No se pudo deshacer.', 'error');
++    } finally {
++      setBusy(false);
++    }
++  }
+ 
+   return (
+     <div className="search-tab">
+@@ -154,6 +176,11 @@ export default function SearchTab() {
+                   ))}
+                   {recs.length === 0 && <div className="search-tab__norecs">No hay mesas disponibles para esta categoría.</div>}
+                 </div>
++                {selected.categoria === 'Staff' && (
++                  <button type="button" className="search-tab__change press" style={{ marginTop: 10 }} disabled={busy} onClick={() => handleNoTableNeeded(selected)}>
++                    No necesita mesa (staff)
++                  </button>
++                )}
+                 <button type="button" className="search-tab__change press" style={{ marginTop: 10 }} disabled={busy} onClick={() => handleRevertCheckIn(selected)}>
+                   Deshacer check-in
+                 </button>
+@@ -169,6 +196,15 @@ export default function SearchTab() {
+                 </button>
+               </div>
+             )}
++
++            {selected.status === 'sin_mesa' && (
++              <div className="search-tab__table-info">
++                <div className="search-tab__meta">No necesita mesa — trabaja como staff durante el evento.</div>
++                <button type="button" className="search-tab__change press" disabled={busy} onClick={() => handleRevertNoTableNeeded(selected)}>
++                  Deshacer (sí necesita mesa)
++                </button>
++              </div>
++            )}
+           </>
+         ) : (
+           <div className="search-tab__placeholder">Selecciona una persona de la lista.</div>
+diff --git a/src/domain/constants.js b/src/domain/constants.js
+index 5e08db7..dbc91f2 100644
+--- a/src/domain/constants.js
++++ b/src/domain/constants.js
+@@ -40,6 +40,7 @@ export const STATUS_META = {
+   pendiente: { label: 'Pendiente ingreso', bg: 'var(--warn-bg)', color: 'var(--warn-fg)' },
+   presente: { label: 'Presente', bg: 'var(--navy-100)', color: 'var(--navy-800)' },
+   asignado: { label: 'Asignado a mesa', bg: 'var(--success-bg)', color: 'var(--success-fg)' },
++  sin_mesa: { label: 'Staff · sin mesa', bg: 'var(--panel-50)', color: 'var(--ink-500)' },
+ };
+ 
+ export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 0e2bc6d..8054338 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -107,6 +107,20 @@ export function revertCheckIn(whatsapp) {
+   return updateDoc(doc(db, 'participants', whatsapp), { status: 'pendiente', updatedAt: serverTimestamp() });
+ }
+ 
++/**
++ * Staff doesn't necessarily sit at a table — this closes that loop instead
++ * of leaving them stuck in "presente" showing an unresolved "mesas
++ * recomendadas" prompt every time someone looks them up.
++ */
++export function markNoTableNeeded(whatsapp) {
++  return updateDoc(doc(db, 'participants', whatsapp), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
++}
++
++/** Undo "sin mesa" — back to "presente", in case it was marked by mistake or plans changed. */
++export function revertNoTableNeeded(whatsapp) {
++  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
++}
++
+ /**
+  * Moves a participant onto a table, capacity-checked and race-safe: this is
+  * the one operation the PRD calls out explicitly (§16) — two reception
