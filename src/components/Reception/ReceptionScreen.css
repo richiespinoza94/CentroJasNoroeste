@@ -26,10 +26,17 @@
   display: flex;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
-  flex-wrap: wrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.reception__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .reception__tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
   background: var(--line-100);
   color: var(--ink-500);
   padding: 10px 14px;

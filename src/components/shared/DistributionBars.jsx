@@ -1,10 +1,10 @@
 import './DistributionBars.css';
 
-export default function DistributionBars({ title, rows, color, scroll }) {
+export default function DistributionBars({ title, rows, color }) {
   return (
     <div className="dist-panel">
       <div className="dist-panel__title">{title}</div>
-      <div className={scroll ? 'dist-list dist-list--scroll' : 'dist-list'}>
+      <div className="dist-list">
         {rows.map((r) => (
           <div key={r.label}>
             <div className="dist-row__top">

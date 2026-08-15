@@ -25,8 +25,7 @@ export default function RecentActivity({ participants, onSelect }) {
 
   if (recent.length === 0) return null;
 
-  async function handleUndo(p, e) {
-    e.stopPropagation();
+  async function handleUndo(p) {
     setBusyId(p.id);
     try {
       if (p.status === 'asignado') {
@@ -48,16 +47,16 @@ export default function RecentActivity({ participants, onSelect }) {
       <div className="recent-activity__title">Actividad reciente</div>
       <div className="recent-activity__row">
         {recent.map((p) => (
-          <div key={p.id} className="recent-activity__card press" onClick={() => onSelect(p.id)} role="button" tabIndex={0}>
-            <div>
+          <div key={p.id} className="recent-activity__card">
+            <button type="button" className="recent-activity__select press" onClick={() => onSelect(p.id)}>
               <div className="recent-activity__name">
                 {p.nombre} {p.apellidos}
               </div>
               <span className="badge" style={{ background: STATUS_META[p.status].bg, color: STATUS_META[p.status].color }}>
                 {STATUS_META[p.status].label}
               </span>
-            </div>
-            <button type="button" className="recent-activity__undo" disabled={busyId === p.id} onClick={(e) => handleUndo(p, e)}>
+            </button>
+            <button type="button" className="recent-activity__undo press" disabled={busyId === p.id} onClick={() => handleUndo(p)}>
               Deshacer
             </button>
           </div>

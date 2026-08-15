@@ -17,7 +17,7 @@ export function ToastProvider({ children }) {
   const push = useCallback(
     (message, tone = 'success') => {
       const id = nextId++;
-      setToasts((t) => [...t, { id, message, tone }]);
+      setToasts((t) => [...t, { id, message, tone }].slice(-3));
       const timer = setTimeout(() => dismiss(id), 4000);
       timers.current.set(id, timer);
     },

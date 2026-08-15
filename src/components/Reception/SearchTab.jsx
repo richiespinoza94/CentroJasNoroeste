@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
@@ -14,6 +14,14 @@ export default function SearchTab() {
   const toast = useToast();
   const { search, selectedId } = state;
   const [busy, setBusy] = useState(false);
+  const detailRef = useRef(null);
+
+  // En mobile, lista y detalle quedan apilados (el detalle cae debajo de
+  // toda la lista). Sin este scroll, tocar a alguien no muestra ningún
+  // cambio visible en pantalla — el detalle aparece fuera del viewport.
+  useEffect(() => {
+    if (selectedId) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedId]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -111,7 +119,7 @@ export default function SearchTab() {
         </div>
       </div>
 
-      <div className="search-tab__detail">
+      <div className="search-tab__detail" ref={detailRef}>
         {selected ? (
           <>
             <div className="search-tab__detail-name">

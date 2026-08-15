@@ -1,11 +1,16 @@
 .tables-config__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 8px 4px;
-  border-bottom: 1px solid var(--cream-50);
-  border-radius: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    'name occ delete'
+    'cap  cap  cap'
+    'res  res  res';
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--line-100);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
   transition: background-color var(--motion-base) var(--ease-out);
 }
 
@@ -18,46 +23,47 @@
 }
 
 .tables-config__name {
-  flex: 1 1 90px;
+  grid-area: name;
   font-weight: 700;
   color: var(--navy-800);
-  font-size: 13.5px;
-  align-self: center;
+  font-size: 14.5px;
+  font-family: var(--font-display);
 }
 
 .tables-config__field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 .tables-config__field-cap {
-  flex: 1 1 90px;
+  grid-area: cap;
 }
 .tables-config__field-res {
-  flex: 1 1 150px;
+  grid-area: res;
 }
 
 .tables-config__field-label {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--ink-200);
+  font-weight: 600;
 }
 
 .tables-config__field input,
 .tables-config__field select {
-  padding: 7px 8px;
+  padding: 9px 10px;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: 13.5px;
   width: 100%;
-  min-height: 38px;
+  min-height: var(--touch-min);
 }
 
 .tables-config__occ {
+  grid-area: occ;
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 12.5px;
   color: var(--ink-300);
-  align-self: center;
   min-width: 64px;
 }
 
@@ -78,9 +84,9 @@
 }
 
 .tables-config__delete {
+  grid-area: delete;
   background: none;
   color: var(--danger-500);
-  align-self: center;
   min-height: var(--touch-min);
   min-width: var(--touch-min);
 }

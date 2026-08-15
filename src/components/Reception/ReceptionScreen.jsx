@@ -61,7 +61,7 @@ export default function ReceptionScreen() {
               <StatCards cards={computeStatCards(participants, tables)} />
               <div className="reception__dist-row">
                 <DistributionBars title="Avance por estaca" rows={computeEstacaDist(participants)} color="var(--navy-800)" />
-                <DistributionBars title="Detalle por barrio" rows={computeBarrioDist(participants)} color="var(--gold-500)" scroll />
+                <DistributionBars title="Detalle por barrio" rows={computeBarrioDist(participants)} color="var(--gold-500)" />
               </div>
             </>
           )}

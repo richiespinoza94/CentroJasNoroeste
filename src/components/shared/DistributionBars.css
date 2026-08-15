@@ -18,10 +18,7 @@
   flex-direction: column;
   gap: 9px;
 }
-.dist-list--scroll {
-  max-height: 220px;
-  overflow-y: auto;
-}
+
 
 .dist-row__top {
   display: flex;
