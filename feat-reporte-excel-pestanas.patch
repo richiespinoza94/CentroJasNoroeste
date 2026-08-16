@@ -1,0 +1,322 @@
+diff --git a/package-lock.json b/package-lock.json
+index 01c6b01..bcd2e6c 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -10,7 +10,8 @@
+       "dependencies": {
+         "firebase": "^11.0.2",
+         "react": "^18.3.1",
+-        "react-dom": "^18.3.1"
++        "react-dom": "^18.3.1",
++        "xlsx": "^0.18.5"
+       },
+       "devDependencies": {
+         "@vitejs/plugin-react": "^4.3.4",
+@@ -2146,6 +2147,15 @@
+         "node": ">=6.5"
+       }
+     },
++    "node_modules/adler-32": {
++      "version": "1.3.1",
++      "resolved": "https://registry.npmjs.org/adler-32/-/adler-32-1.3.1.tgz",
++      "integrity": "sha512-ynZ4w/nUUv5rrsR8UUGoe1VC9hZj6V5hU9Qw1HlMDJGEJw5S7TfTErWTjMys6M7vr0YWcPqs3qAr4ss0nDfP+A==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/agent-base": {
+       "version": "7.1.4",
+       "resolved": "https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz",
+@@ -2345,6 +2355,19 @@
+       ],
+       "license": "CC-BY-4.0"
+     },
++    "node_modules/cfb": {
++      "version": "1.2.2",
++      "resolved": "https://registry.npmjs.org/cfb/-/cfb-1.2.2.tgz",
++      "integrity": "sha512-KfdUZsSOw19/ObEWasvBP/Ac4reZvAGauZhs6S/gqNhXhI7cKwvlH7ulj+dOEYnca4bm4SGo8C1bTAQvnTjgQA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "adler-32": "~1.3.0",
++        "crc-32": "~1.2.0"
++      },
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/cliui": {
+       "version": "8.0.1",
+       "resolved": "https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz",
+@@ -2359,6 +2382,15 @@
+         "node": ">=12"
+       }
+     },
++    "node_modules/codepage": {
++      "version": "1.15.0",
++      "resolved": "https://registry.npmjs.org/codepage/-/codepage-1.15.0.tgz",
++      "integrity": "sha512-3g6NUTPd/YtuuGrhMnOMRjFc+LJw/bnMp3+0r/Wcz3IXUuCosKRJvMphm5+Q+bvTVGcJJuRvVLuYba+WojaFaA==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/color-convert": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
+@@ -2398,6 +2430,18 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/crc-32": {
++      "version": "1.2.2",
++      "resolved": "https://registry.npmjs.org/crc-32/-/crc-32-1.2.2.tgz",
++      "integrity": "sha512-ROmzCKrTnOwybPcJApAA6WBWij23HVfGVNKqqrZpuyZOHqK2CwHSvpGuyt/UNNvaIjEd8X5IFGp4Mh+Ie1IHJQ==",
++      "license": "Apache-2.0",
++      "bin": {
++        "crc32": "bin/crc32.njs"
++      },
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/data-uri-to-buffer": {
+       "version": "4.0.1",
+       "resolved": "https://registry.npmjs.org/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz",
+@@ -2832,6 +2876,15 @@
+         "node": ">=12.20.0"
+       }
+     },
++    "node_modules/frac": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/frac/-/frac-1.1.2.tgz",
++      "integrity": "sha512-w/XBfkibaTl3YDqASwfDUqkna4Z2p9cFSr1aHDt0WoMTECnRfBOv2WArlZILlqgWlmdIlALXGpM2AOhEk5W3IA==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/fsevents": {
+       "version": "2.3.3",
+       "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+@@ -4049,6 +4102,18 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/ssf": {
++      "version": "0.11.2",
++      "resolved": "https://registry.npmjs.org/ssf/-/ssf-0.11.2.tgz",
++      "integrity": "sha512-+idbmIXoYET47hH+d7dfm2epdOMUDjqcB4648sTZ+t2JwoyBFL/insLfB/racrDmsKB3diwsDA696pZMieAC5g==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "frac": "~1.1.2"
++      },
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/stream-events": {
+       "version": "1.0.5",
+       "resolved": "https://registry.npmjs.org/stream-events/-/stream-events-1.0.5.tgz",
+@@ -4371,6 +4436,24 @@
+         "webidl-conversions": "^3.0.0"
+       }
+     },
++    "node_modules/wmf": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/wmf/-/wmf-1.0.2.tgz",
++      "integrity": "sha512-/p9K7bEh0Dj6WbXg4JG0xvLQmIadrner1bi45VMJTfnbVHsc7yIajZyoSoK60/dtVBs12Fm6WkUI5/3WAVsNMw==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
++    "node_modules/word": {
++      "version": "0.3.0",
++      "resolved": "https://registry.npmjs.org/word/-/word-0.3.0.tgz",
++      "integrity": "sha512-OELeY0Q61OXpdUfTp+oweA/vtLVg5VDOXh+3he3PNzLGG/y0oylSOC1xRVj0+l4vQ3tj/bB1HVHv1ocXkQceFA==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/wrap-ansi": {
+       "version": "7.0.0",
+       "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz",
+@@ -4396,6 +4479,27 @@
+       "license": "ISC",
+       "optional": true
+     },
++    "node_modules/xlsx": {
++      "version": "0.18.5",
++      "resolved": "https://registry.npmjs.org/xlsx/-/xlsx-0.18.5.tgz",
++      "integrity": "sha512-dmg3LCjBPHZnQp5/F/+nnTa+miPJxUXB6vtk42YjBBKayDNagxGEeIdWApkYPOf3Z3pm3k62Knjzp7lMeTEtFQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "adler-32": "~1.3.0",
++        "cfb": "~1.2.1",
++        "codepage": "~1.15.0",
++        "crc-32": "~1.2.1",
++        "ssf": "~0.11.2",
++        "wmf": "~1.0.1",
++        "word": "~0.3.0"
++      },
++      "bin": {
++        "xlsx": "bin/xlsx.njs"
++      },
++      "engines": {
++        "node": ">=0.8"
++      }
++    },
+     "node_modules/xml-naming": {
+       "version": "0.3.0",
+       "resolved": "https://registry.npmjs.org/xml-naming/-/xml-naming-0.3.0.tgz",
+diff --git a/package.json b/package.json
+index 80940a1..0cfcc75 100644
+--- a/package.json
++++ b/package.json
+@@ -15,7 +15,8 @@
+   "dependencies": {
+     "firebase": "^11.0.2",
+     "react": "^18.3.1",
+-    "react-dom": "^18.3.1"
++    "react-dom": "^18.3.1",
++    "xlsx": "^0.18.5"
+   },
+   "devDependencies": {
+     "@vitejs/plugin-react": "^4.3.4",
+diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
+index f4c449f..4608e74 100644
+--- a/src/components/Admin/AdminScreen.jsx
++++ b/src/components/Admin/AdminScreen.jsx
+@@ -2,7 +2,6 @@ import { useState } from 'react';
+ import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+ import { useToast } from '../../hooks/useToast.jsx';
+ import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../domain/stats.js';
+-import { buildParticipantsCsv } from '../../domain/report.js';
+ import { DownloadIcon } from '../ui/Icon.jsx';
+ import StatCards from '../shared/StatCards.jsx';
+ import DistributionBars from '../shared/DistributionBars.jsx';
+@@ -29,23 +28,23 @@ export default function AdminScreen() {
+     );
+   }
+ 
+-  function handleDownloadReport() {
++  const [downloading, setDownloading] = useState(false);
++
++  async function handleDownloadReport() {
+     if (participants.length === 0) {
+       toast('No hay registrados todavía.', 'error');
+       return;
+     }
+-    const csv = buildParticipantsCsv(participants, tables);
+-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+-    const url = URL.createObjectURL(blob);
+-    const a = document.createElement('a');
+-    const fecha = new Date().toISOString().slice(0, 10);
+-    a.href = url;
+-    a.download = `la-velada-2026-registrados-${fecha}.csv`;
+-    document.body.appendChild(a);
+-    a.click();
+-    document.body.removeChild(a);
+-    URL.revokeObjectURL(url);
+-    toast(`Reporte descargado — ${participants.length} registrados.`);
++    setDownloading(true);
++    try {
++      const { downloadParticipantsReport } = await import('../../domain/report.js');
++      downloadParticipantsReport(participants, tables);
++      toast(`Reporte descargado — ${participants.length} registrados en 4 pestañas.`);
++    } catch {
++      toast('No se pudo generar el reporte.', 'error');
++    } finally {
++      setDownloading(false);
++    }
+   }
+ 
+   return (
+@@ -69,9 +68,9 @@ export default function AdminScreen() {
+ 
+       {tab === 'dashboard' && (
+         <>
+-          <button type="button" className="admin__report-btn press" onClick={handleDownloadReport}>
++          <button type="button" className="admin__report-btn press" disabled={downloading} onClick={handleDownloadReport}>
+             <DownloadIcon width={18} height={18} />
+-            Descargar reporte de registrados (CSV)
++            {downloading ? 'Generando reporte…' : 'Descargar reporte de registrados (Excel, 4 pestañas)'}
+           </button>
+ 
+           <div className="admin__stats">
+diff --git a/src/domain/report.js b/src/domain/report.js
+index b934b64..726ce46 100644
+--- a/src/domain/report.js
++++ b/src/domain/report.js
+@@ -1,34 +1,43 @@
++import * as XLSX from 'xlsx';
+ import { STATUS_META } from './constants.js';
+ 
+-const HEADERS = ['Nombre completo', 'Estaca', 'Barrio', 'Categoría', 'WhatsApp', 'Estado', 'Mesa asignada'];
++// Mismas 3 estacas que administra el Centro JAS Noroeste (ver ESTACAS en
++// este archivo). Cualquier otro valor es texto libre que alguien escribió
++// al elegir "Otra estaca" en el formulario — todo eso cae en "Otros".
++const KNOWN_ESTACAS = ['Ventanilla', 'Miramar', 'Puente Piedra'];
+ 
+-function csvEscape(value) {
+-  const str = String(value ?? '');
+-  // Solo envolver en comillas si hace falta (coma, comilla o salto de línea)
+-  // — evita comillas de más en el 90% de los campos, que son texto simple.
+-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+-  return str;
++const HEADERS = ['Nombre completo', 'Barrio', 'Categoría', 'WhatsApp', 'Estado', 'Mesa asignada'];
++
++function participantRow(p, tables) {
++  const tableName = p.tableId ? tables.find((t) => t.id === p.tableId)?.name || '' : '';
++  return [`${p.nombre} ${p.apellidos}`, p.barrio, p.categoria, p.whatsapp, STATUS_META[p.status]?.label || p.status, tableName];
+ }
+ 
+ /**
+- * Arma el CSV de participantes registrados. Antepone un BOM UTF-8 (\uFEFF)
+- * porque sin él, Excel abre el archivo y muestra los acentos/ñ como
+- * caracteres corruptos — un bug clásico de CSV en español, no un detalle
+- * cosmético.
++ * Arma un libro de Excel con una pestaña por estaca (Ventanilla, Miramar,
++ * Puente Piedra, Otros) — la estaca ya es el nombre de la pestaña, así que
++ * no hace falta repetirla como columna en cada fila.
+  */
+-export function buildParticipantsCsv(participants, tables) {
+-  const rows = participants.map((p) => {
+-    const tableName = p.tableId ? tables.find((t) => t.id === p.tableId)?.name || '' : '';
+-    return [
+-      `${p.nombre} ${p.apellidos}`,
+-      p.estaca,
+-      p.barrio,
+-      p.categoria,
+-      p.whatsapp,
+-      STATUS_META[p.status]?.label || p.status,
+-      tableName,
+-    ];
+-  });
+-  const lines = [HEADERS, ...rows].map((row) => row.map(csvEscape).join(','));
+-  return '\uFEFF' + lines.join('\r\n');
++export function buildParticipantsWorkbook(participants, tables) {
++  const groups = { Ventanilla: [], Miramar: [], 'Puente Piedra': [], Otros: [] };
++  for (const p of participants) {
++    const key = KNOWN_ESTACAS.includes(p.estaca) ? p.estaca : 'Otros';
++    groups[key].push(p);
++  }
++
++  const wb = XLSX.utils.book_new();
++  for (const [estaca, list] of Object.entries(groups)) {
++    const rows = list.map((p) => participantRow(p, tables));
++    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
++    ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 12 }];
++    XLSX.utils.book_append_sheet(wb, ws, estaca);
++  }
++  return wb;
++}
++
++/** Arma el libro y dispara la descarga — el único punto del código que sabe que el reporte se genera con la librería xlsx. */
++export function downloadParticipantsReport(participants, tables) {
++  const wb = buildParticipantsWorkbook(participants, tables);
++  const fecha = new Date().toISOString().slice(0, 10);
++  XLSX.writeFile(wb, `la-velada-2026-registrados-${fecha}.xlsx`);
+ }
