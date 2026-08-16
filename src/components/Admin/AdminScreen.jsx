@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+import { useToast } from '../../hooks/useToast.jsx';
 import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../domain/stats.js';
+import { DownloadIcon } from '../ui/Icon.jsx';
 import StatCards from '../shared/StatCards.jsx';
 import DistributionBars from '../shared/DistributionBars.jsx';
 import TablesConfig from './TablesConfig.jsx';
@@ -15,6 +17,7 @@ const TABS = [
 
 export default function AdminScreen() {
   const { participants, tables, loading } = useFirestoreData();
+  const toast = useToast();
   const [tab, setTab] = useState('dashboard');
 
   if (loading) {
@@ -23,6 +26,25 @@ export default function AdminScreen() {
         <div className="admin__loading">Cargando datos en tiempo real…</div>
       </div>
     );
+  }
+
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownloadReport() {
+    if (participants.length === 0) {
+      toast('No hay registrados todavía.', 'error');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const { downloadParticipantsReport } = await import('../../domain/report.js');
+      downloadParticipantsReport(participants, tables);
+      toast(`Reporte descargado — ${participants.length} registrados en 4 pestañas.`);
+    } catch {
+      toast('No se pudo generar el reporte.', 'error');
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -46,6 +68,11 @@ export default function AdminScreen() {
 
       {tab === 'dashboard' && (
         <>
+          <button type="button" className="admin__report-btn press" disabled={downloading} onClick={handleDownloadReport}>
+            <DownloadIcon width={18} height={18} />
+            {downloading ? 'Generando reporte…' : 'Descargar reporte de registrados (Excel, 4 pestañas)'}
+          </button>
+
           <div className="admin__stats">
             <StatCards cards={computeStatCards(participants, tables)} />
           </div>

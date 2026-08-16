@@ -30,6 +30,23 @@
   color: var(--white);
 }
 
+.admin__report-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 11px 14px;
+  margin-bottom: var(--space-4);
+  background: var(--white);
+  color: var(--navy-800);
+  border: 1.5px solid var(--line-200);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
 .admin__stats {
   margin-bottom: 20px;
 }
