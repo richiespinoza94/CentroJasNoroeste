@@ -1,25 +1,3 @@
-diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
-index 9656310..8b6c014 100644
---- a/src/components/Admin/AdminScreen.jsx
-+++ b/src/components/Admin/AdminScreen.jsx
-@@ -20,7 +20,7 @@ const TABS = [
- ];
- 
- export default function AdminScreen() {
--  const { participants, tables, activities, personas, loading } = useFirestoreData();
-+  const { participants, tables, activities, personas, activeActivity, loading } = useFirestoreData();
-   const toast = useToast();
-   const [tab, setTab] = useState('dashboard');
- 
-@@ -88,7 +88,7 @@ export default function AdminScreen() {
-       )}
- 
-       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
--      {tab === 'personas' && <PersonasConfig personas={personas} />}
-+      {tab === 'personas' && <PersonasConfig personas={personas} participants={participants} activeActivity={activeActivity} />}
-       {tab === 'mesas' && <TablesConfig tables={tables} />}
-       {tab === 'usuarios' && <UsersConfig />}
-     </div>
 diff --git a/src/components/Admin/PersonasConfig.css b/src/components/Admin/PersonasConfig.css
 index e4086ac..c78087c 100644
 --- a/src/components/Admin/PersonasConfig.css

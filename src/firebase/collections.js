@@ -105,8 +105,13 @@ const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
 // DataProvider). No orderBy on purpose — a composite index would be needed
 // to combine it with the inscripciones query's own filtering, and the
 // dataset is small enough that sorting client-side is simpler.
+//
+// `whatsapp` isn't stored as a field inside the doc (the doc ID already is
+// the number) — this is the one place that derives it back onto every row,
+// so nothing downstream needs to know id===whatsapp is an implementation
+// detail.
 export function subscribePersonas(callback) {
-  return subscribeWithRetry(collection(db, 'personas'), callback);
+  return subscribeWithRetry(collection(db, 'personas'), (rows) => callback(rows.map((r) => ({ ...r, whatsapp: r.id }))));
 }
 
 // Staff-only, inscripciones for one activity at a time — this is what

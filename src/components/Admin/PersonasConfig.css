@@ -106,7 +106,9 @@
 
 /* Modal de edición — blur de fondo para indicar que se puede descartar
    tocando afuera (Apple HIG: blur/backdrop = dismissal), tarjeta centrada,
-   ruta de escape explícita (Cancelar + Escape + click afuera). */
+   ruta de escape explícita (Cancelar + Escape + click afuera). Anima desde
+   el trigger (slide-up + fade) en vez de aparecer de golpe — mismos tokens
+   de motion (--motion-base, --ease-out) que ToastHost usa para toast-in. */
 .personas-modal__backdrop {
   position: fixed;
   inset: 0;
@@ -117,12 +119,26 @@
   justify-content: center;
   z-index: 60;
   padding: 0;
+  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out);
+}
+
+.personas-modal__backdrop--closing {
+  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out) reverse;
 }
 
 @media (min-width: 640px) {
   .personas-modal__backdrop {
     align-items: center;
     padding: 20px;
+  }
+}
+
+@keyframes personas-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -134,6 +150,22 @@
   overflow-y: auto;
   border-radius: 16px 16px 0 0;
   padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out);
+}
+
+.personas-modal--closing {
+  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out) reverse;
+}
+
+@keyframes personas-modal-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (min-width: 640px) {
@@ -141,6 +173,33 @@
     border-radius: var(--radius-lg);
     padding: 22px;
   }
+  @keyframes personas-modal-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+.personas-modal__hint {
+  font-size: 12px;
+  color: var(--ink-300);
+  background: var(--panel-50);
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.personas-modal__error {
+  font-size: 12.5px;
+  color: var(--danger-600);
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .personas-modal__title {
