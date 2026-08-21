@@ -1,0 +1,832 @@
+diff --git a/firestore.rules b/firestore.rules
+index 2090e84..2e96ed2 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -36,29 +36,53 @@ service cloud.firestore {
+       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+     }
+ 
+-    // Public registration (PRD §7): anyone can create their own entry, but
+-    // only with the shape a fresh self-registration is allowed to have —
+-    // they can't mark themselves "presente" or pre-assign a table. Staff can
+-    // create too (manual registration, PRD §8) with looser shape rules.
++    // Deprecated as of Fase 2 (personas/inscripciones) — kept read-only for
++    // staff as a historical backup of pre-migration data. The app no longer
++    // reads or writes this collection; see scripts/migrate-personas-fase2.mjs.
+     match /participants/{whatsapp} {
+-      function isValidPublicCreate() {
++      allow read: if isStaff();
++      allow write: if false;
++    }
++
++    // Fase 2 — identidad única: one persona per WhatsApp number, shared
++    // across every activity. Doc ID = whatsapp, same "atomic doc-creation
++    // instead of a racy query" trick as the old participants collection.
++    // Public create/update is allowed (self-registration writes their own
++    // identity data — a phone number belongs to one persona regardless of
++    // which activity they're registering for), but only with an identity
++    // shape — status/categoria/tableId live in inscripciones, never here.
++    match /personas/{whatsapp} {
++      function isValidPersonaWrite() {
+         let d = request.resource.data;
+-        return request.resource.id == whatsapp
+-          && d.whatsapp == whatsapp
+-          && whatsapp.matches('^9[0-9]{8}$')
+-          && d.status == 'pendiente'
+-          && d.tableId == null
+-          && d.categoria in ['Miembro', 'Invitado']
++        return whatsapp.matches('^9[0-9]{8}$')
+           && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 40
+           && d.apellidos is string && d.apellidos.size() > 0 && d.apellidos.size() <= 50;
+       }
+-      // A specific WhatsApp number can be looked up by anyone who already
+-      // knows it (needed for the client-side "ya existe un registro" dedup
+-      // check before submit) — but the full list/collection can't be
+-      // enumerated or queried by the public, only by staff.
++      // Exact-ID lookup stays public (dedup check by phone before submit).
++      // Full enumeration — needed for Admin → Personas and for name-based
++      // dedup search — is staff-only for now (see Fase 2 notes).
++      allow get: if true;
++      allow list: if isStaff();
++      allow create, update: if isValidPersonaWrite() || isStaff();
++      allow delete: if false;
++    }
++
++    // One inscripción per persona per actividad. Doc ID =
++    // `${activityId}_${whatsapp}`, so "already registered for this
++    // activity" is an atomic doc-creation check — but the SAME persona can
++    // hold a separate inscripción doc for a different activity.
++    match /inscripciones/{inscripcionId} {
++      function isValidPublicInscripcionCreate() {
++        let d = request.resource.data;
++        return inscripcionId == (d.activityId + '_' + d.whatsapp)
++          && d.whatsapp.matches('^9[0-9]{8}$')
++          && d.status == 'pendiente'
++          && d.tableId == null
++          && d.categoria in ['Miembro', 'Invitado'];
++      }
+       allow get: if true;
+       allow list: if isStaff();
+-      allow create: if isValidPublicCreate() || isStaff();
++      allow create: if isValidPublicInscripcionCreate() || isStaff();
+       allow update: if isStaff();
+       allow delete: if false;
+     }
+diff --git a/scripts/migrate-personas-fase2.mjs b/scripts/migrate-personas-fase2.mjs
+new file mode 100644
+index 0000000..bb09bee
+--- /dev/null
++++ b/scripts/migrate-personas-fase2.mjs
+@@ -0,0 +1,98 @@
++// One-time migration. Run with:
++//   node --env-file=.env.local scripts/migrate-personas-fase2.mjs <activityId>
++// Needs GOOGLE_APPLICATION_CREDENTIALS pointing at a service account key
++// (same setup as seed-firestore.mjs). Uses the Admin SDK, which bypasses
++// firestore.rules.
++//
++// Splits every doc in the old flat `participants` collection into:
++//   - personas/{whatsapp}        — identity data, shared across activities
++//   - inscripciones/{activityId}_{whatsapp} — this person's registration
++//     for the one activity all of today's `participants` data actually
++//     belongs to (see README/memory notes: it's "La Velada").
++//
++// Non-destructive and safe to re-run: never deletes `participants`, and
++// re-running just overwrites the same personas/inscripciones docs with the
++// same data.
++import { initializeApp, applicationDefault } from 'firebase-admin/app';
++import { getFirestore, FieldValue } from 'firebase-admin/firestore';
++
++initializeApp({ credential: applicationDefault() });
++const db = getFirestore();
++
++const activityId = process.argv[2];
++
++async function listActivities() {
++  const snap = await db.collection('activities').get();
++  console.log('\nActividades disponibles (usa el ID exacto, no el nombre):');
++  snap.forEach((d) => console.log(`  ${d.id}  —  ${d.data().nombre} (${d.data().fecha})`));
++}
++
++async function migrate() {
++  if (!activityId) {
++    console.error('Falta el activityId. Uso: node --env-file=.env.local scripts/migrate-personas-fase2.mjs <activityId>');
++    await listActivities();
++    process.exit(1);
++  }
++
++  const activitySnap = await db.collection('activities').doc(activityId).get();
++  if (!activitySnap.exists) {
++    console.error(`No existe una actividad con ID "${activityId}".`);
++    await listActivities();
++    process.exit(1);
++  }
++  console.log(`Migrando hacia la actividad: "${activitySnap.data().nombre}" (${activitySnap.data().fecha})`);
++
++  const participantsSnap = await db.collection('participants').get();
++  console.log(`${participantsSnap.size} registros encontrados en participants.\n`);
++
++  let migrated = 0;
++  const batchSize = 400; // Firestore batch limit is 500 writes; stay comfortably under it (2 writes per person)
++  let batch = db.batch();
++  let opsInBatch = 0;
++
++  for (const doc of participantsSnap.docs) {
++    const whatsapp = doc.id;
++    const p = doc.data();
++
++    const personaRef = db.collection('personas').doc(whatsapp);
++    batch.set(
++      personaRef,
++      {
++        nombre: p.nombre || '',
++        apellidos: p.apellidos || '',
++        sexo: p.sexo || '',
++        estaca: p.estaca || '',
++        barrio: p.barrio || '',
++        correo: p.correo || '',
++        createdAt: p.createdAt || FieldValue.serverTimestamp(),
++        updatedAt: FieldValue.serverTimestamp(),
++      },
++      { merge: true }
++    );
++
++    const inscripcionRef = db.collection('inscripciones').doc(`${activityId}_${whatsapp}`);
++    batch.set(inscripcionRef, {
++      activityId,
++      whatsapp,
++      categoria: p.categoria || 'Miembro',
++      status: p.status || 'pendiente',
++      tableId: p.tableId ?? null,
++      createdAt: p.createdAt || FieldValue.serverTimestamp(),
++      updatedAt: FieldValue.serverTimestamp(),
++    });
++
++    migrated++;
++    opsInBatch += 2;
++    if (opsInBatch >= batchSize) {
++      await batch.commit();
++      batch = db.batch();
++      opsInBatch = 0;
++    }
++  }
++  if (opsInBatch > 0) await batch.commit();
++
++  console.log(`\nListo — ${migrated} personas + ${migrated} inscripciones creadas/actualizadas.`);
++  console.log('El original en `participants` NO se borró — se dejó como respaldo (ver firestore.rules).');
++}
++
++await migrate();
+diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
+index a9765b5..9656310 100644
+--- a/src/components/Admin/AdminScreen.jsx
++++ b/src/components/Admin/AdminScreen.jsx
+@@ -8,17 +8,19 @@ import DistributionBars from '../shared/DistributionBars.jsx';
+ import TablesConfig from './TablesConfig.jsx';
+ import UsersConfig from './UsersConfig.jsx';
+ import ActivitiesConfig from './ActivitiesConfig.jsx';
++import PersonasConfig from './PersonasConfig.jsx';
+ import './AdminScreen.css';
+ 
+ const TABS = [
+   { id: 'actividades', label: 'Actividades' },
+   { id: 'dashboard', label: 'Dashboard' },
++  { id: 'personas', label: 'Personas' },
+   { id: 'mesas', label: 'Mesas' },
+   { id: 'usuarios', label: 'Usuarios' },
+ ];
+ 
+ export default function AdminScreen() {
+-  const { participants, tables, activities, loading } = useFirestoreData();
++  const { participants, tables, activities, personas, loading } = useFirestoreData();
+   const toast = useToast();
+   const [tab, setTab] = useState('dashboard');
+ 
+@@ -86,6 +88,7 @@ export default function AdminScreen() {
+       )}
+ 
+       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
++      {tab === 'personas' && <PersonasConfig personas={personas} />}
+       {tab === 'mesas' && <TablesConfig tables={tables} />}
+       {tab === 'usuarios' && <UsersConfig />}
+     </div>
+diff --git a/src/components/Admin/PersonasConfig.css b/src/components/Admin/PersonasConfig.css
+new file mode 100644
+index 0000000..2df193d
+--- /dev/null
++++ b/src/components/Admin/PersonasConfig.css
+@@ -0,0 +1,84 @@
++.personas-config {
++  display: flex;
++  flex-direction: column;
++  gap: 12px;
++}
++
++.personas-config__summary {
++  font-size: 12.5px;
++  color: var(--ink-300);
++}
++
++.personas-config__search {
++  width: 100%;
++}
++
++.personas-config__list {
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.personas-config__row {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  gap: 8px;
++  padding: 10px 12px;
++  background: var(--panel-50);
++  border-radius: 9px;
++  flex-wrap: wrap;
++  min-height: var(--touch-min);
++}
++
++.personas-config__name {
++  font-weight: 700;
++  color: var(--navy-800);
++  font-size: 13.5px;
++}
++
++.personas-config__meta {
++  font-size: 11.5px;
++  color: var(--ink-300);
++  margin-top: 2px;
++}
++
++.personas-config__correo {
++  font-size: 11px;
++  color: var(--ink-300);
++}
++
++.personas-config__empty {
++  text-align: center;
++  color: var(--ink-300);
++  font-size: 13px;
++  padding: 20px 0;
++}
++
++.personas-config__pager {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  margin-top: 4px;
++}
++
++.personas-config__pager-btn {
++  background: none;
++  border: 1px solid var(--navy-100);
++  color: var(--navy-800);
++  font-size: 12px;
++  font-weight: 700;
++  padding: 8px 12px;
++  border-radius: 7px;
++  min-height: var(--touch-min);
++}
++
++.personas-config__pager-btn:disabled {
++  opacity: 0.4;
++}
++
++.personas-config__pager-label {
++  font-size: 12px;
++  color: var(--ink-300);
++}
+diff --git a/src/components/Admin/PersonasConfig.jsx b/src/components/Admin/PersonasConfig.jsx
+new file mode 100644
+index 0000000..a270d5c
+--- /dev/null
++++ b/src/components/Admin/PersonasConfig.jsx
+@@ -0,0 +1,106 @@
++import { useMemo, useState } from 'react';
++import './PersonasConfig.css';
++
++const PAGE_SIZE = 15;
++
++// Búsqueda inteligente 100% local (mismo patrón que el buscador de
++// recepción del Full Day): normaliza acentos, compara por prefijo/substring
++// sobre nombre+apellidos+estaca+barrio, y por sufijo exacto si el término
++// parece un número de WhatsApp. No hace falta un motor de búsqueda externo
++// — el directorio de un centro JAS es chico.
++function normalize(s) {
++  return String(s || '')
++    .normalize('NFD')
++    .replace(/[\u0300-\u036f]/g, '')
++    .toLowerCase()
++    .trim();
++}
++
++function scorePersona(query, persona) {
++  const q = normalize(query);
++  if (q.length < 3) return -1;
++  const nombreCompleto = normalize(`${persona.nombre} ${persona.apellidos}`);
++  const isNum = /^\d{3,}$/.test(q);
++  if (isNum) return persona.whatsapp?.includes(q) ? 900 : -1;
++
++  const estaca = normalize(persona.estaca);
++  const barrio = normalize(persona.barrio);
++  if (nombreCompleto === q) return 1000;
++  if (nombreCompleto.startsWith(q)) return 900;
++  if (nombreCompleto.split(' ').some((tok) => tok.startsWith(q))) return 800;
++  if (nombreCompleto.includes(q)) return 700;
++  if (estaca.includes(q) || barrio.includes(q)) return 400;
++  return -1;
++}
++
++export default function PersonasConfig({ personas }) {
++  const [query, setQuery] = useState('');
++  const [page, setPage] = useState(0);
++
++  const filtered = useMemo(() => {
++    const q = query.trim();
++    if (q.length < 3) {
++      return [...personas].sort((a, b) => `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`));
++    }
++    return personas
++      .map((p) => ({ p, score: scorePersona(q, p) }))
++      .filter((x) => x.score >= 0)
++      .sort((a, b) => b.score - a.score)
++      .map((x) => x.p);
++  }, [personas, query]);
++
++  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
++  const currentPage = Math.min(page, totalPages - 1);
++  const pageItems = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
++
++  function handleQueryChange(v) {
++    setQuery(v);
++    setPage(0);
++  }
++
++  return (
++    <div className="personas-config">
++      <div className="personas-config__summary">{personas.length} personas registradas en total, en todas las actividades.</div>
++
++      <input
++        type="text"
++        className="personas-config__search"
++        value={query}
++        onChange={(e) => handleQueryChange(e.target.value)}
++        placeholder="Buscar por nombre, estaca, barrio o WhatsApp…"
++        aria-label="Buscar persona"
++      />
++
++      <div className="personas-config__list">
++        {pageItems.map((p) => (
++          <div key={p.id} className="personas-config__row">
++            <div className="personas-config__info">
++              <div className="personas-config__name">
++                {p.nombre} {p.apellidos}
++              </div>
++              <div className="personas-config__meta">
++                {p.estaca || '—'} · {p.barrio || '—'} · {p.whatsapp}
++              </div>
++            </div>
++            {p.correo && <div className="personas-config__correo">{p.correo}</div>}
++          </div>
++        ))}
++        {pageItems.length === 0 && <div className="personas-config__empty">Sin resultados.</div>}
++      </div>
++
++      {totalPages > 1 && (
++        <div className="personas-config__pager">
++          <button type="button" className="personas-config__pager-btn press" disabled={currentPage === 0} onClick={() => setPage((p) => p - 1)}>
++            ← Anterior
++          </button>
++          <span className="personas-config__pager-label">
++            Página {currentPage + 1} de {totalPages}
++          </span>
++          <button type="button" className="personas-config__pager-btn press" disabled={currentPage >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
++            Siguiente →
++          </button>
++        </div>
++      )}
++    </div>
++  );
++}
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index a5ec18f..c96ad6b 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -44,7 +44,7 @@ export default function RegistrationForm() {
+     }
+     setSubmitting(true);
+     try {
+-      await registerParticipant(form);
++      await registerParticipant(form, activeActivity.id);
+       const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
+       dispatch({
+         type: 'FORM_SUCCESS',
+diff --git a/src/components/Reception/ManualTab.css b/src/components/Reception/ManualTab.css
+index 89ee0ec..25fccd0 100644
+--- a/src/components/Reception/ManualTab.css
++++ b/src/components/Reception/ManualTab.css
+@@ -28,3 +28,10 @@
+   font-size: 12px;
+   color: var(--success-fg);
+ }
++
++.manual-tab__no-activity {
++  padding: 20px 16px;
++  text-align: center;
++  color: var(--ink-300);
++  font-size: 13.5px;
++}
+diff --git a/src/components/Reception/ManualTab.jsx b/src/components/Reception/ManualTab.jsx
+index 8a5231e..2f9204b 100644
+--- a/src/components/Reception/ManualTab.jsx
++++ b/src/components/Reception/ManualTab.jsx
+@@ -13,7 +13,7 @@ import './ManualTab.css';
+ // self-service registration (no privacy checkbox, defaults to "presente").
+ export default function ManualTab() {
+   const { state, dispatch } = useStore();
+-  const { participants } = useFirestoreData();
++  const { participants, activeActivity } = useFirestoreData();
+   const toast = useToast();
+   const { manual, manualError, manualSuccess } = state;
+   const [submitting, setSubmitting] = useState(false);
+@@ -29,7 +29,7 @@ export default function ManualTab() {
+     }
+     setSubmitting(true);
+     try {
+-      await registerManual(manual);
++      await registerManual(manual, activeActivity.id);
+       const message = `${manual.nombre.trim()} registrado(a) y presente.`;
+       dispatch({ type: 'MANUAL_SUCCESS', message });
+       toast(message);
+@@ -40,6 +40,10 @@ export default function ManualTab() {
+     }
+   }
+ 
++  if (!activeActivity) {
++    return <div className="manual-tab manual-tab__no-activity">No hay ninguna actividad activa. Actívala en Admin → Actividades antes de registrar a alguien.</div>;
++  }
++
+   return (
+     <form className="manual-tab" onSubmit={handleSubmit}>
+       <div className="manual-tab__title">Registro manual</div>
+diff --git a/src/firebase/DataProvider.jsx b/src/firebase/DataProvider.jsx
+index d3f358a..e1a090f 100644
+--- a/src/firebase/DataProvider.jsx
++++ b/src/firebase/DataProvider.jsx
+@@ -1,22 +1,25 @@
+ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+-import { subscribeParticipants, subscribeTables, subscribeActivities } from './collections.js';
++import { subscribePersonas, subscribeInscripciones, subscribeTables, subscribeActivities } from './collections.js';
+ import { useAuth } from './AuthProvider.jsx';
+ 
+ const DataContext = createContext(null);
+ 
+-// Firestore rules only grant list access on participants/tables to signed-in
+-// staff, so there's nothing to subscribe to on the public registration page
+-// — starting those listeners only once a staff user is present avoids a
+-// permission-denied round-trip on every visitor's phone. `activities` is
+-// different: it's publicly readable on purpose (the registration form needs
+-// the active event's name before anyone logs in), so it subscribes
+-// unconditionally.
++const toMillis = (ts) => (ts && typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
++
++// Firestore rules only grant list access on personas/inscripciones/tables to
++// signed-in staff, so those listeners only start once a staff user is
++// present — avoids a permission-denied round-trip on every visitor's phone.
++// `activities` is different: it's publicly readable on purpose (the
++// registration form needs the active event's name before anyone logs in),
++// so it subscribes unconditionally.
+ export function DataProvider({ children }) {
+   const { user } = useAuth();
+-  const [participants, setParticipants] = useState([]);
++  const [personas, setPersonas] = useState([]);
++  const [inscripciones, setInscripciones] = useState([]);
+   const [tables, setTables] = useState([]);
+   const [activities, setActivities] = useState([]);
+-  const [participantsReady, setParticipantsReady] = useState(false);
++  const [personasReady, setPersonasReady] = useState(false);
++  const [inscripcionesReady, setInscripcionesReady] = useState(false);
+   const [tablesReady, setTablesReady] = useState(false);
+   const [activitiesReady, setActivitiesReady] = useState(false);
+ 
+@@ -28,40 +31,72 @@ export function DataProvider({ children }) {
+     return unsub;
+   }, []);
+ 
++  const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
++
+   useEffect(() => {
+     if (!user) {
+-      setParticipants([]);
++      setPersonas([]);
+       setTables([]);
+-      setParticipantsReady(false);
++      setPersonasReady(false);
+       setTablesReady(false);
+       return;
+     }
+-    const unsubP = subscribeParticipants((rows) => {
+-      setParticipants(rows);
+-      setParticipantsReady(true);
++    const unsubPersonas = subscribePersonas((rows) => {
++      setPersonas(rows);
++      setPersonasReady(true);
+     });
+-    const unsubT = subscribeTables((rows) => {
++    const unsubTables = subscribeTables((rows) => {
+       setTables(rows);
+       setTablesReady(true);
+     });
+     return () => {
+-      unsubP();
+-      unsubT();
++      unsubPersonas();
++      unsubTables();
+     };
+   }, [user]);
+ 
+-  const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
++  // Scoped to whichever activity is active right now — this is what
++  // Reception/Admin's day-to-day screens operate on.
++  useEffect(() => {
++    if (!user || !activeActivity) {
++      setInscripciones([]);
++      setInscripcionesReady(!activeActivity); // nothing to wait for if there's no active activity
++      return;
++    }
++    setInscripcionesReady(false);
++    const unsub = subscribeInscripciones(activeActivity.id, (rows) => {
++      setInscripciones(rows);
++      setInscripcionesReady(true);
++    });
++    return unsub;
++  }, [user, activeActivity]);
++
++  // Joins personas + inscripciones into the same flat shape the old
++  // participants collection had — SearchTab, ManualTab, StatCards,
++  // DistributionBars, report.js, stats.js all keep working unmodified.
++  const participants = useMemo(() => {
++    const personaMap = new Map(personas.map((p) => [p.id, p]));
++    return inscripciones
++      .map((i) => {
++        const persona = personaMap.get(i.whatsapp);
++        if (!persona) return null; // orphaned inscripción (persona doc missing) — skip rather than crash
++        return { ...persona, id: i.id, whatsapp: persona.id, categoria: i.categoria, status: i.status, tableId: i.tableId, activityId: i.activityId, createdAt: i.createdAt, updatedAt: i.updatedAt };
++      })
++      .filter(Boolean)
++      .sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
++  }, [personas, inscripciones]);
+ 
+   const value = useMemo(
+     () => ({
+       participants,
++      personas,
+       tables,
+       activities,
+       activeActivity,
+       activitiesLoading: !activitiesReady,
+-      loading: !!user && !(participantsReady && tablesReady),
++      loading: !!user && !(personasReady && tablesReady && inscripcionesReady),
+     }),
+-    [participants, tables, activities, activeActivity, activitiesReady, participantsReady, tablesReady, user]
++    [participants, personas, tables, activities, activeActivity, activitiesReady, personasReady, tablesReady, inscripcionesReady, user]
+   );
+   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+ }
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 1e03b5e..5a57b8e 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -8,6 +8,7 @@ import {
+   serverTimestamp,
+   setDoc,
+   updateDoc,
++  where,
+ } from 'firebase/firestore';
+ import { db } from './config.js';
+ 
+@@ -93,61 +94,90 @@ export async function setActiveActivity(activityId, allActivities) {
+   });
+ }
+ 
+-export function subscribeParticipants(callback) {
+-  return subscribeWithRetry(query(collection(db, 'participants'), orderBy('createdAt', 'asc')), callback);
++// Fase 2 — identidad única. `personas` is the global identity directory (one
++// doc per WhatsApp, shared across every activity); `inscripciones` is the
++// per-activity participation record. Reception/Admin still work with a
++// single joined "participant" shape — see DataProvider.jsx — so this is the
++// only file that needs to know the data lives in two collections now.
++const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
++
++// Staff-only, all personas (used by Admin → Personas and by the join in
++// DataProvider). No orderBy on purpose — a composite index would be needed
++// to combine it with the inscripciones query's own filtering, and the
++// dataset is small enough that sorting client-side is simpler.
++export function subscribePersonas(callback) {
++  return subscribeWithRetry(collection(db, 'personas'), callback);
++}
++
++// Staff-only, inscripciones for one activity at a time — this is what
++// Reception/Admin actually operate on day-to-day.
++export function subscribeInscripciones(activityId, callback) {
++  return subscribeWithRetry(query(collection(db, 'inscripciones'), where('activityId', '==', activityId)), callback);
+ }
+ 
+ export function subscribeTables(callback) {
+   return subscribeWithRetry(query(collection(db, 'tables'), orderBy('createdAt', 'asc')), callback);
+ }
+ 
+-async function createParticipant(whatsapp, data) {
+-  const ref = doc(db, 'participants', whatsapp);
++/**
++ * Upserts identity data into `personas/{whatsapp}` (merge — a returning
++ * person's latest details win, but this never fails if they already exist)
++ * and creates `inscripciones/{activityId}_{whatsapp}` (fails atomically if
++ * that exact activity+phone combo is already registered — the same "no
++ * duplicate registration" trick the old participants collection used, now
++ * scoped per activity instead of globally).
++ */
++async function registerForActivity(activityId, whatsapp, personaData, inscripcionData) {
++  const personaRef = doc(db, 'personas', whatsapp);
++  const inscripcionRef = doc(db, 'inscripciones', inscripcionDocId(activityId, whatsapp));
++
+   await runTransaction(db, async (tx) => {
+-    const existing = await tx.get(ref);
+-    if (existing.exists()) {
+-      const p = existing.data();
+-      throw new Error(`Ya existe un registro con este número (${p.nombre} ${p.apellidos}).`);
++    const [personaSnap, inscripcionSnap] = await Promise.all([tx.get(personaRef), tx.get(inscripcionRef)]);
++    if (inscripcionSnap.exists()) {
++      throw new Error('Ya existe un registro con este número para esta actividad.');
+     }
+-    tx.set(ref, { ...data, whatsapp, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
++    tx.set(
++      personaRef,
++      { ...personaData, ...(personaSnap.exists() ? {} : { createdAt: serverTimestamp() }), updatedAt: serverTimestamp() },
++      { merge: true }
++    );
++    tx.set(inscripcionRef, { ...inscripcionData, activityId, whatsapp, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+   });
+ }
+ 
+-export function registerParticipant(form) {
+-  return createParticipant(form.whatsapp, {
+-    nombre: form.nombre.trim(),
+-    apellidos: form.apellidos.trim(),
+-    sexo: form.sexo,
+-    estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
+-    barrio: form.barrio.trim(),
+-    correo: form.correo,
+-    categoria: form.categoria,
+-    status: 'pendiente',
+-    tableId: null,
+-  });
++export function registerParticipant(form, activityId) {
++  return registerForActivity(
++    activityId,
++    form.whatsapp,
++    {
++      nombre: form.nombre.trim(),
++      apellidos: form.apellidos.trim(),
++      sexo: form.sexo,
++      fechaNacimiento: form.fechaNacimiento,
++      estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
++      barrio: form.barrio.trim(),
++      correo: form.correo,
++    },
++    { categoria: form.categoria, status: 'pendiente', tableId: null }
++  );
+ }
+ 
+-export function registerManual(m) {
+-  return createParticipant(m.whatsapp, {
+-    nombre: m.nombre.trim(),
+-    apellidos: m.apellidos.trim(),
+-    sexo: '',
+-    estaca: m.estaca,
+-    barrio: m.barrio.trim(),
+-    correo: '',
+-    categoria: m.categoria,
+-    status: 'presente',
+-    tableId: null,
+-  });
++export function registerManual(m, activityId) {
++  return registerForActivity(
++    activityId,
++    m.whatsapp,
++    { nombre: m.nombre.trim(), apellidos: m.apellidos.trim(), estaca: m.estaca, barrio: m.barrio.trim() },
++    { categoria: m.categoria, status: 'presente', tableId: null }
++  );
+ }
+ 
+-export function checkIn(whatsapp) {
+-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
++export function checkIn(inscripcionId) {
++  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
+ }
+ 
+ /** Undo an accidental check-in — back to "pendiente", only valid before a table was assigned. */
+-export function revertCheckIn(whatsapp) {
+-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'pendiente', updatedAt: serverTimestamp() });
++export function revertCheckIn(inscripcionId) {
++  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'pendiente', updatedAt: serverTimestamp() });
+ }
+ 
+ /**
+@@ -155,46 +185,44 @@ export function revertCheckIn(whatsapp) {
+  * of leaving them stuck in "presente" showing an unresolved "mesas
+  * recomendadas" prompt every time someone looks them up.
+  */
+-export function markNoTableNeeded(whatsapp) {
+-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
++export function markNoTableNeeded(inscripcionId) {
++  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
+ }
+ 
+ /** Undo "sin mesa" — back to "presente", in case it was marked by mistake or plans changed. */
+-export function revertNoTableNeeded(whatsapp) {
+-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
++export function revertNoTableNeeded(inscripcionId) {
++  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
+ }
+ 
+ /**
+- * Corrige la categoría de alguien ya registrado (p.ej. se registró como
+- * Miembro y terminó sumándose al staff del evento). También sirve para
+- * migrar a mano un registro que quedó con el esquema viejo (categoria:
+- * 'participante'/'programa'/'staff') — ver nota del README.
++ * Corrige la categoría de alguien ya registrado en esta actividad (p.ej. se
++ * registró como Miembro y terminó sumándose al staff del evento).
+  */
+-export function setCategoria(whatsapp, categoria) {
+-  return updateDoc(doc(db, 'participants', whatsapp), { categoria, updatedAt: serverTimestamp() });
++export function setCategoria(inscripcionId, categoria) {
++  return updateDoc(doc(db, 'inscripciones', inscripcionId), { categoria, updatedAt: serverTimestamp() });
+ }
+ 
+ /**
+  * Moves a participant onto a table, capacity-checked and race-safe: this is
+  * the one operation the PRD calls out explicitly (§16) — two reception
+  * devices assigning the last two seats at the same instant must never both
+- * succeed. `table.occ` is a denormalized counter kept in sync with
+- * participant.tableId inside this same transaction, so a capacity check is
+- * a single-document read instead of a collection scan.
++ * succeed. `table.occ` is a denormalized counter kept in sync with the
++ * inscripción's tableId inside this same transaction, so a capacity check
++ * is a single-document read instead of a collection scan.
+  */
+-export async function assignTable(whatsapp, tableId) {
+-  const participantRef = doc(db, 'participants', whatsapp);
++export async function assignTable(inscripcionId, tableId) {
++  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
+   const tableRef = doc(db, 'tables', tableId);
+ 
+   await runTransaction(db, async (tx) => {
+-    const [participantSnap, tableSnap] = await Promise.all([tx.get(participantRef), tx.get(tableRef)]);
++    const [inscripcionSnap, tableSnap] = await Promise.all([tx.get(inscripcionRef), tx.get(tableRef)]);
+     if (!tableSnap.exists()) throw new Error('Esa mesa ya no existe.');
+     const table = tableSnap.data();
+-    const participant = participantSnap.data();
++    const inscripcion = inscripcionSnap.data();
+ 
+     let previousTableSnap = null;
+-    if (participant.tableId && participant.tableId !== tableId) {
+-      previousTableSnap = await tx.get(doc(db, 'tables', participant.tableId));
++    if (inscripcion.tableId && inscripcion.tableId !== tableId) {
++      previousTableSnap = await tx.get(doc(db, 'tables', inscripcion.tableId));
+     }
+ 
+     const occ = table.occ || 0;
+@@ -204,21 +232,21 @@ export async function assignTable(whatsapp, tableId) {
+       tx.update(previousTableSnap.ref, { occ: Math.max(0, (previousTableSnap.data().occ || 0) - 1) });
+     }
+     tx.update(tableRef, { occ: occ + 1 });
+-    tx.update(participantRef, { status: 'asignado', tableId, updatedAt: serverTimestamp() });
++    tx.update(inscripcionRef, { status: 'asignado', tableId, updatedAt: serverTimestamp() });
+   });
+ }
+ 
+-export async function unassignTable(whatsapp) {
+-  const participantRef = doc(db, 'participants', whatsapp);
++export async function unassignTable(inscripcionId) {
++  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
+   await runTransaction(db, async (tx) => {
+-    const participantSnap = await tx.get(participantRef);
+-    const participant = participantSnap.data();
+-    if (participant.tableId) {
+-      const tableRef = doc(db, 'tables', participant.tableId);
++    const inscripcionSnap = await tx.get(inscripcionRef);
++    const inscripcion = inscripcionSnap.data();
++    if (inscripcion.tableId) {
++      const tableRef = doc(db, 'tables', inscripcion.tableId);
+       const tableSnap = await tx.get(tableRef);
+       if (tableSnap.exists()) tx.update(tableRef, { occ: Math.max(0, (tableSnap.data().occ || 0) - 1) });
+     }
+-    tx.update(participantRef, { status: 'presente', tableId: null, updatedAt: serverTimestamp() });
++    tx.update(inscripcionRef, { status: 'presente', tableId: null, updatedAt: serverTimestamp() });
+   });
+ }
+ 

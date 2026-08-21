@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from './config.js';
 
@@ -93,61 +94,90 @@ export async function setActiveActivity(activityId, allActivities) {
   });
 }
 
-export function subscribeParticipants(callback) {
-  return subscribeWithRetry(query(collection(db, 'participants'), orderBy('createdAt', 'asc')), callback);
+// Fase 2 — identidad única. `personas` is the global identity directory (one
+// doc per WhatsApp, shared across every activity); `inscripciones` is the
+// per-activity participation record. Reception/Admin still work with a
+// single joined "participant" shape — see DataProvider.jsx — so this is the
+// only file that needs to know the data lives in two collections now.
+const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
+
+// Staff-only, all personas (used by Admin → Personas and by the join in
+// DataProvider). No orderBy on purpose — a composite index would be needed
+// to combine it with the inscripciones query's own filtering, and the
+// dataset is small enough that sorting client-side is simpler.
+export function subscribePersonas(callback) {
+  return subscribeWithRetry(collection(db, 'personas'), callback);
+}
+
+// Staff-only, inscripciones for one activity at a time — this is what
+// Reception/Admin actually operate on day-to-day.
+export function subscribeInscripciones(activityId, callback) {
+  return subscribeWithRetry(query(collection(db, 'inscripciones'), where('activityId', '==', activityId)), callback);
 }
 
 export function subscribeTables(callback) {
   return subscribeWithRetry(query(collection(db, 'tables'), orderBy('createdAt', 'asc')), callback);
 }
 
-async function createParticipant(whatsapp, data) {
-  const ref = doc(db, 'participants', whatsapp);
+/**
+ * Upserts identity data into `personas/{whatsapp}` (merge — a returning
+ * person's latest details win, but this never fails if they already exist)
+ * and creates `inscripciones/{activityId}_{whatsapp}` (fails atomically if
+ * that exact activity+phone combo is already registered — the same "no
+ * duplicate registration" trick the old participants collection used, now
+ * scoped per activity instead of globally).
+ */
+async function registerForActivity(activityId, whatsapp, personaData, inscripcionData) {
+  const personaRef = doc(db, 'personas', whatsapp);
+  const inscripcionRef = doc(db, 'inscripciones', inscripcionDocId(activityId, whatsapp));
+
   await runTransaction(db, async (tx) => {
-    const existing = await tx.get(ref);
-    if (existing.exists()) {
-      const p = existing.data();
-      throw new Error(`Ya existe un registro con este número (${p.nombre} ${p.apellidos}).`);
+    const [personaSnap, inscripcionSnap] = await Promise.all([tx.get(personaRef), tx.get(inscripcionRef)]);
+    if (inscripcionSnap.exists()) {
+      throw new Error('Ya existe un registro con este número para esta actividad.');
     }
-    tx.set(ref, { ...data, whatsapp, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    tx.set(
+      personaRef,
+      { ...personaData, ...(personaSnap.exists() ? {} : { createdAt: serverTimestamp() }), updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    tx.set(inscripcionRef, { ...inscripcionData, activityId, whatsapp, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   });
 }
 
-export function registerParticipant(form) {
-  return createParticipant(form.whatsapp, {
-    nombre: form.nombre.trim(),
-    apellidos: form.apellidos.trim(),
-    sexo: form.sexo,
-    estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
-    barrio: form.barrio.trim(),
-    correo: form.correo,
-    categoria: form.categoria,
-    status: 'pendiente',
-    tableId: null,
-  });
+export function registerParticipant(form, activityId) {
+  return registerForActivity(
+    activityId,
+    form.whatsapp,
+    {
+      nombre: form.nombre.trim(),
+      apellidos: form.apellidos.trim(),
+      sexo: form.sexo,
+      fechaNacimiento: form.fechaNacimiento,
+      estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
+      barrio: form.barrio.trim(),
+      correo: form.correo,
+    },
+    { categoria: form.categoria, status: 'pendiente', tableId: null }
+  );
 }
 
-export function registerManual(m) {
-  return createParticipant(m.whatsapp, {
-    nombre: m.nombre.trim(),
-    apellidos: m.apellidos.trim(),
-    sexo: '',
-    estaca: m.estaca,
-    barrio: m.barrio.trim(),
-    correo: '',
-    categoria: m.categoria,
-    status: 'presente',
-    tableId: null,
-  });
+export function registerManual(m, activityId) {
+  return registerForActivity(
+    activityId,
+    m.whatsapp,
+    { nombre: m.nombre.trim(), apellidos: m.apellidos.trim(), estaca: m.estaca, barrio: m.barrio.trim() },
+    { categoria: m.categoria, status: 'presente', tableId: null }
+  );
 }
 
-export function checkIn(whatsapp) {
-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
+export function checkIn(inscripcionId) {
+  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
 }
 
 /** Undo an accidental check-in — back to "pendiente", only valid before a table was assigned. */
-export function revertCheckIn(whatsapp) {
-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'pendiente', updatedAt: serverTimestamp() });
+export function revertCheckIn(inscripcionId) {
+  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'pendiente', updatedAt: serverTimestamp() });
 }
 
 /**
@@ -155,46 +185,44 @@ export function revertCheckIn(whatsapp) {
  * of leaving them stuck in "presente" showing an unresolved "mesas
  * recomendadas" prompt every time someone looks them up.
  */
-export function markNoTableNeeded(whatsapp) {
-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
+export function markNoTableNeeded(inscripcionId) {
+  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
 }
 
 /** Undo "sin mesa" — back to "presente", in case it was marked by mistake or plans changed. */
-export function revertNoTableNeeded(whatsapp) {
-  return updateDoc(doc(db, 'participants', whatsapp), { status: 'presente', updatedAt: serverTimestamp() });
+export function revertNoTableNeeded(inscripcionId) {
+  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
 }
 
 /**
- * Corrige la categoría de alguien ya registrado (p.ej. se registró como
- * Miembro y terminó sumándose al staff del evento). También sirve para
- * migrar a mano un registro que quedó con el esquema viejo (categoria:
- * 'participante'/'programa'/'staff') — ver nota del README.
+ * Corrige la categoría de alguien ya registrado en esta actividad (p.ej. se
+ * registró como Miembro y terminó sumándose al staff del evento).
  */
-export function setCategoria(whatsapp, categoria) {
-  return updateDoc(doc(db, 'participants', whatsapp), { categoria, updatedAt: serverTimestamp() });
+export function setCategoria(inscripcionId, categoria) {
+  return updateDoc(doc(db, 'inscripciones', inscripcionId), { categoria, updatedAt: serverTimestamp() });
 }
 
 /**
  * Moves a participant onto a table, capacity-checked and race-safe: this is
  * the one operation the PRD calls out explicitly (§16) — two reception
  * devices assigning the last two seats at the same instant must never both
- * succeed. `table.occ` is a denormalized counter kept in sync with
- * participant.tableId inside this same transaction, so a capacity check is
- * a single-document read instead of a collection scan.
+ * succeed. `table.occ` is a denormalized counter kept in sync with the
+ * inscripción's tableId inside this same transaction, so a capacity check
+ * is a single-document read instead of a collection scan.
  */
-export async function assignTable(whatsapp, tableId) {
-  const participantRef = doc(db, 'participants', whatsapp);
+export async function assignTable(inscripcionId, tableId) {
+  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
   const tableRef = doc(db, 'tables', tableId);
 
   await runTransaction(db, async (tx) => {
-    const [participantSnap, tableSnap] = await Promise.all([tx.get(participantRef), tx.get(tableRef)]);
+    const [inscripcionSnap, tableSnap] = await Promise.all([tx.get(inscripcionRef), tx.get(tableRef)]);
     if (!tableSnap.exists()) throw new Error('Esa mesa ya no existe.');
     const table = tableSnap.data();
-    const participant = participantSnap.data();
+    const inscripcion = inscripcionSnap.data();
 
     let previousTableSnap = null;
-    if (participant.tableId && participant.tableId !== tableId) {
-      previousTableSnap = await tx.get(doc(db, 'tables', participant.tableId));
+    if (inscripcion.tableId && inscripcion.tableId !== tableId) {
+      previousTableSnap = await tx.get(doc(db, 'tables', inscripcion.tableId));
     }
 
     const occ = table.occ || 0;
@@ -204,21 +232,21 @@ export async function assignTable(whatsapp, tableId) {
       tx.update(previousTableSnap.ref, { occ: Math.max(0, (previousTableSnap.data().occ || 0) - 1) });
     }
     tx.update(tableRef, { occ: occ + 1 });
-    tx.update(participantRef, { status: 'asignado', tableId, updatedAt: serverTimestamp() });
+    tx.update(inscripcionRef, { status: 'asignado', tableId, updatedAt: serverTimestamp() });
   });
 }
 
-export async function unassignTable(whatsapp) {
-  const participantRef = doc(db, 'participants', whatsapp);
+export async function unassignTable(inscripcionId) {
+  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
   await runTransaction(db, async (tx) => {
-    const participantSnap = await tx.get(participantRef);
-    const participant = participantSnap.data();
-    if (participant.tableId) {
-      const tableRef = doc(db, 'tables', participant.tableId);
+    const inscripcionSnap = await tx.get(inscripcionRef);
+    const inscripcion = inscripcionSnap.data();
+    if (inscripcion.tableId) {
+      const tableRef = doc(db, 'tables', inscripcion.tableId);
       const tableSnap = await tx.get(tableRef);
       if (tableSnap.exists()) tx.update(tableRef, { occ: Math.max(0, (tableSnap.data().occ || 0) - 1) });
     }
-    tx.update(participantRef, { status: 'presente', tableId: null, updatedAt: serverTimestamp() });
+    tx.update(inscripcionRef, { status: 'presente', tableId: null, updatedAt: serverTimestamp() });
   });
 }
 

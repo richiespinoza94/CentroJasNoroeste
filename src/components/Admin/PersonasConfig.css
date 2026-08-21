@@ -1,0 +1,84 @@
+.personas-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.personas-config__summary {
+  font-size: 12.5px;
+  color: var(--ink-300);
+}
+
+.personas-config__search {
+  width: 100%;
+}
+
+.personas-config__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.personas-config__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel-50);
+  border-radius: 9px;
+  flex-wrap: wrap;
+  min-height: var(--touch-min);
+}
+
+.personas-config__name {
+  font-weight: 700;
+  color: var(--navy-800);
+  font-size: 13.5px;
+}
+
+.personas-config__meta {
+  font-size: 11.5px;
+  color: var(--ink-300);
+  margin-top: 2px;
+}
+
+.personas-config__correo {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.personas-config__empty {
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 13px;
+  padding: 20px 0;
+}
+
+.personas-config__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.personas-config__pager-btn {
+  background: none;
+  border: 1px solid var(--navy-100);
+  color: var(--navy-800);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 7px;
+  min-height: var(--touch-min);
+}
+
+.personas-config__pager-btn:disabled {
+  opacity: 0.4;
+}
+
+.personas-config__pager-label {
+  font-size: 12px;
+  color: var(--ink-300);
+}

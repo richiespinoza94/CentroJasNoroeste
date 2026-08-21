@@ -36,29 +36,53 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
-    // Public registration (PRD §7): anyone can create their own entry, but
-    // only with the shape a fresh self-registration is allowed to have —
-    // they can't mark themselves "presente" or pre-assign a table. Staff can
-    // create too (manual registration, PRD §8) with looser shape rules.
+    // Deprecated as of Fase 2 (personas/inscripciones) — kept read-only for
+    // staff as a historical backup of pre-migration data. The app no longer
+    // reads or writes this collection; see scripts/migrate-personas-fase2.mjs.
     match /participants/{whatsapp} {
-      function isValidPublicCreate() {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // Fase 2 — identidad única: one persona per WhatsApp number, shared
+    // across every activity. Doc ID = whatsapp, same "atomic doc-creation
+    // instead of a racy query" trick as the old participants collection.
+    // Public create/update is allowed (self-registration writes their own
+    // identity data — a phone number belongs to one persona regardless of
+    // which activity they're registering for), but only with an identity
+    // shape — status/categoria/tableId live in inscripciones, never here.
+    match /personas/{whatsapp} {
+      function isValidPersonaWrite() {
         let d = request.resource.data;
-        return request.resource.id == whatsapp
-          && d.whatsapp == whatsapp
-          && whatsapp.matches('^9[0-9]{8}$')
-          && d.status == 'pendiente'
-          && d.tableId == null
-          && d.categoria in ['Miembro', 'Invitado']
+        return whatsapp.matches('^9[0-9]{8}$')
           && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 40
           && d.apellidos is string && d.apellidos.size() > 0 && d.apellidos.size() <= 50;
       }
-      // A specific WhatsApp number can be looked up by anyone who already
-      // knows it (needed for the client-side "ya existe un registro" dedup
-      // check before submit) — but the full list/collection can't be
-      // enumerated or queried by the public, only by staff.
+      // Exact-ID lookup stays public (dedup check by phone before submit).
+      // Full enumeration — needed for Admin → Personas and for name-based
+      // dedup search — is staff-only for now (see Fase 2 notes).
       allow get: if true;
       allow list: if isStaff();
-      allow create: if isValidPublicCreate() || isStaff();
+      allow create, update: if isValidPersonaWrite() || isStaff();
+      allow delete: if false;
+    }
+
+    // One inscripción per persona per actividad. Doc ID =
+    // `${activityId}_${whatsapp}`, so "already registered for this
+    // activity" is an atomic doc-creation check — but the SAME persona can
+    // hold a separate inscripción doc for a different activity.
+    match /inscripciones/{inscripcionId} {
+      function isValidPublicInscripcionCreate() {
+        let d = request.resource.data;
+        return inscripcionId == (d.activityId + '_' + d.whatsapp)
+          && d.whatsapp.matches('^9[0-9]{8}$')
+          && d.status == 'pendiente'
+          && d.tableId == null
+          && d.categoria in ['Miembro', 'Invitado'];
+      }
+      allow get: if true;
+      allow list: if isStaff();
+      allow create: if isValidPublicInscripcionCreate() || isStaff();
       allow update: if isStaff();
       allow delete: if false;
     }

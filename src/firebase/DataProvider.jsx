@@ -1,22 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { subscribeParticipants, subscribeTables, subscribeActivities } from './collections.js';
+import { subscribePersonas, subscribeInscripciones, subscribeTables, subscribeActivities } from './collections.js';
 import { useAuth } from './AuthProvider.jsx';
 
 const DataContext = createContext(null);
 
-// Firestore rules only grant list access on participants/tables to signed-in
-// staff, so there's nothing to subscribe to on the public registration page
-// — starting those listeners only once a staff user is present avoids a
-// permission-denied round-trip on every visitor's phone. `activities` is
-// different: it's publicly readable on purpose (the registration form needs
-// the active event's name before anyone logs in), so it subscribes
-// unconditionally.
+const toMillis = (ts) => (ts && typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
+
+// Firestore rules only grant list access on personas/inscripciones/tables to
+// signed-in staff, so those listeners only start once a staff user is
+// present — avoids a permission-denied round-trip on every visitor's phone.
+// `activities` is different: it's publicly readable on purpose (the
+// registration form needs the active event's name before anyone logs in),
+// so it subscribes unconditionally.
 export function DataProvider({ children }) {
   const { user } = useAuth();
-  const [participants, setParticipants] = useState([]);
+  const [personas, setPersonas] = useState([]);
+  const [inscripciones, setInscripciones] = useState([]);
   const [tables, setTables] = useState([]);
   const [activities, setActivities] = useState([]);
-  const [participantsReady, setParticipantsReady] = useState(false);
+  const [personasReady, setPersonasReady] = useState(false);
+  const [inscripcionesReady, setInscripcionesReady] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
   const [activitiesReady, setActivitiesReady] = useState(false);
 
@@ -28,40 +31,72 @@ export function DataProvider({ children }) {
     return unsub;
   }, []);
 
+  const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
+
   useEffect(() => {
     if (!user) {
-      setParticipants([]);
+      setPersonas([]);
       setTables([]);
-      setParticipantsReady(false);
+      setPersonasReady(false);
       setTablesReady(false);
       return;
     }
-    const unsubP = subscribeParticipants((rows) => {
-      setParticipants(rows);
-      setParticipantsReady(true);
+    const unsubPersonas = subscribePersonas((rows) => {
+      setPersonas(rows);
+      setPersonasReady(true);
     });
-    const unsubT = subscribeTables((rows) => {
+    const unsubTables = subscribeTables((rows) => {
       setTables(rows);
       setTablesReady(true);
     });
     return () => {
-      unsubP();
-      unsubT();
+      unsubPersonas();
+      unsubTables();
     };
   }, [user]);
 
-  const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
+  // Scoped to whichever activity is active right now — this is what
+  // Reception/Admin's day-to-day screens operate on.
+  useEffect(() => {
+    if (!user || !activeActivity) {
+      setInscripciones([]);
+      setInscripcionesReady(!activeActivity); // nothing to wait for if there's no active activity
+      return;
+    }
+    setInscripcionesReady(false);
+    const unsub = subscribeInscripciones(activeActivity.id, (rows) => {
+      setInscripciones(rows);
+      setInscripcionesReady(true);
+    });
+    return unsub;
+  }, [user, activeActivity]);
+
+  // Joins personas + inscripciones into the same flat shape the old
+  // participants collection had — SearchTab, ManualTab, StatCards,
+  // DistributionBars, report.js, stats.js all keep working unmodified.
+  const participants = useMemo(() => {
+    const personaMap = new Map(personas.map((p) => [p.id, p]));
+    return inscripciones
+      .map((i) => {
+        const persona = personaMap.get(i.whatsapp);
+        if (!persona) return null; // orphaned inscripción (persona doc missing) — skip rather than crash
+        return { ...persona, id: i.id, whatsapp: persona.id, categoria: i.categoria, status: i.status, tableId: i.tableId, activityId: i.activityId, createdAt: i.createdAt, updatedAt: i.updatedAt };
+      })
+      .filter(Boolean)
+      .sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
+  }, [personas, inscripciones]);
 
   const value = useMemo(
     () => ({
       participants,
+      personas,
       tables,
       activities,
       activeActivity,
       activitiesLoading: !activitiesReady,
-      loading: !!user && !(participantsReady && tablesReady),
+      loading: !!user && !(personasReady && tablesReady && inscripcionesReady),
     }),
-    [participants, tables, activities, activeActivity, activitiesReady, participantsReady, tablesReady, user]
+    [participants, personas, tables, activities, activeActivity, activitiesReady, personasReady, tablesReady, inscripcionesReady, user]
   );
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

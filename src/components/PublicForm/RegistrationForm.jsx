@@ -44,7 +44,7 @@ export default function RegistrationForm() {
     }
     setSubmitting(true);
     try {
-      await registerParticipant(form);
+      await registerParticipant(form, activeActivity.id);
       const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
       dispatch({
         type: 'FORM_SUCCESS',

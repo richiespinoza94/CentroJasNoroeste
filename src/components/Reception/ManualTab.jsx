@@ -13,7 +13,7 @@ import './ManualTab.css';
 // self-service registration (no privacy checkbox, defaults to "presente").
 export default function ManualTab() {
   const { state, dispatch } = useStore();
-  const { participants } = useFirestoreData();
+  const { participants, activeActivity } = useFirestoreData();
   const toast = useToast();
   const { manual, manualError, manualSuccess } = state;
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +29,7 @@ export default function ManualTab() {
     }
     setSubmitting(true);
     try {
-      await registerManual(manual);
+      await registerManual(manual, activeActivity.id);
       const message = `${manual.nombre.trim()} registrado(a) y presente.`;
       dispatch({ type: 'MANUAL_SUCCESS', message });
       toast(message);
@@ -38,6 +38,10 @@ export default function ManualTab() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!activeActivity) {
+    return <div className="manual-tab manual-tab__no-activity">No hay ninguna actividad activa. Actívala en Admin → Actividades antes de registrar a alguien.</div>;
   }
 
   return (

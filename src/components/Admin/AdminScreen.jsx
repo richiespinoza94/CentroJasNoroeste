@@ -8,17 +8,19 @@ import DistributionBars from '../shared/DistributionBars.jsx';
 import TablesConfig from './TablesConfig.jsx';
 import UsersConfig from './UsersConfig.jsx';
 import ActivitiesConfig from './ActivitiesConfig.jsx';
+import PersonasConfig from './PersonasConfig.jsx';
 import './AdminScreen.css';
 
 const TABS = [
   { id: 'actividades', label: 'Actividades' },
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'personas', label: 'Personas' },
   { id: 'mesas', label: 'Mesas' },
   { id: 'usuarios', label: 'Usuarios' },
 ];
 
 export default function AdminScreen() {
-  const { participants, tables, activities, loading } = useFirestoreData();
+  const { participants, tables, activities, personas, loading } = useFirestoreData();
   const toast = useToast();
   const [tab, setTab] = useState('dashboard');
 
@@ -86,6 +88,7 @@ export default function AdminScreen() {
       )}
 
       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
+      {tab === 'personas' && <PersonasConfig personas={personas} />}
       {tab === 'mesas' && <TablesConfig tables={tables} />}
       {tab === 'usuarios' && <UsersConfig />}
     </div>
