@@ -84,6 +84,20 @@ export function ShieldIcon(props) {
   );
 }
 
+export function PencilIcon(props) {
+  return (
+    <svg {...base} {...props}>
+      <path
+        d="M14.5 4.5l5 5L8 21H3v-5L14.5 4.5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function DownloadIcon(props) {
   return (
     <svg {...base} {...props}>

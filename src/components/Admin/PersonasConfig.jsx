@@ -1,4 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '../../hooks/useToast.jsx';
+import { updatePersona } from '../../firebase/collections.js';
+import { ESTACAS } from '../../domain/constants.js';
+import { PencilIcon } from '../ui/Icon.jsx';
+import Field from '../ui/Field.jsx';
 import './PersonasConfig.css';
 
 const PAGE_SIZE = 15;
@@ -33,9 +38,129 @@ function scorePersona(query, persona) {
   return -1;
 }
 
+// Ventana de edición. Se justifica como patrón nuevo (el resto del Admin
+// edita inline arriba de la lista) porque Personas es una lista larga y
+// paginada — reabrir un formulario arriba de la página pierde el contexto
+// de en qué fila estabas. Cierra con click afuera o Escape (mismo patrón
+// de escape que el menú del NavBar) y devuelve el foco al botón que la abrió.
+function EditPersonaModal({ persona, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    nombre: persona.nombre || '',
+    apellidos: persona.apellidos || '',
+    sexo: persona.sexo || '',
+    fechaNacimiento: persona.fechaNacimiento || '',
+    estaca: persona.estaca || '',
+    barrio: persona.barrio || '',
+    correo: persona.correo || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const dialogRef = useRef(null);
+  const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  useEffect(() => {
+    dialogRef.current?.querySelector('input,select')?.focus();
+    function handleKey(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.nombre.trim() || !form.apellidos.trim()) return;
+    setSaving(true);
+    try {
+      await updatePersona(persona.id, form);
+      onSaved();
+    } catch (err) {
+      onSaved(err.message || 'No se pudo guardar.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const barrioOptions = ESTACAS[form.estaca] || [];
+
+  return (
+    <div className="personas-modal__backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="personas-modal" role="dialog" aria-modal="true" aria-label="Editar persona" ref={dialogRef}>
+        <div className="personas-modal__title">Editar datos</div>
+        <form onSubmit={handleSubmit} className="personas-modal__form">
+          <div className="personas-modal__row">
+            <Field id="editNombre" label="Nombre">
+              {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
+            </Field>
+            <Field id="editApellidos" label="Apellidos">
+              {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
+            </Field>
+          </div>
+          <div className="personas-modal__row">
+            <Field id="editSexo" label="Sexo">
+              {(a) => (
+                <select {...a} value={form.sexo} onChange={(e) => setField({ sexo: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="M">M</option>
+                  <option value="F">F</option>
+                </select>
+              )}
+            </Field>
+            <Field id="editFecha" label="Fecha de nacimiento">
+              {(a) => <input {...a} type="date" value={form.fechaNacimiento} onChange={(e) => setField({ fechaNacimiento: e.target.value })} />}
+            </Field>
+          </div>
+          <Field id="editEstaca" label="Estaca">
+            {(a) => (
+              <select {...a} value={form.estaca} onChange={(e) => setField({ estaca: e.target.value, barrio: '' })}>
+                <option value="">Elegir</option>
+                {Object.keys(ESTACAS).map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+                <option value="Otra estaca">Otra estaca</option>
+              </select>
+            )}
+          </Field>
+          <Field id="editBarrio" label="Barrio / Rama">
+            {(a) =>
+              barrioOptions.length > 0 ? (
+                <select {...a} value={form.barrio} onChange={(e) => setField({ barrio: e.target.value })}>
+                  <option value="">Elegir</option>
+                  {barrioOptions.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input {...a} type="text" value={form.barrio} onChange={(e) => setField({ barrio: e.target.value })} />
+              )
+            }
+          </Field>
+          <Field id="editCorreo" label="Correo" optional>
+            {(a) => <input {...a} type="email" value={form.correo} onChange={(e) => setField({ correo: e.target.value })} />}
+          </Field>
+
+          <div className="personas-modal__actions">
+            <button type="button" className="personas-modal__cancel press" onClick={onClose} disabled={saving}>
+              Cancelar
+            </button>
+            <button type="submit" className="personas-modal__save press" disabled={saving}>
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function PersonasConfig({ personas }) {
+  const toast = useToast();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState(null);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -56,6 +181,15 @@ export default function PersonasConfig({ personas }) {
   function handleQueryChange(v) {
     setQuery(v);
     setPage(0);
+  }
+
+  function closeModal(errorMessage) {
+    if (errorMessage) {
+      toast(errorMessage, 'error');
+    } else if (editing) {
+      toast(`${editing.nombre}: datos actualizados.`);
+    }
+    setEditing(null);
   }
 
   return (
@@ -81,8 +215,11 @@ export default function PersonasConfig({ personas }) {
               <div className="personas-config__meta">
                 {p.estaca || '—'} · {p.barrio || '—'} · {p.whatsapp}
               </div>
+              {p.correo && <div className="personas-config__correo">{p.correo}</div>}
             </div>
-            {p.correo && <div className="personas-config__correo">{p.correo}</div>}
+            <button type="button" className="personas-config__edit-btn press" aria-label={`Editar ${p.nombre} ${p.apellidos}`} onClick={() => setEditing(p)}>
+              <PencilIcon width={16} height={16} />
+            </button>
           </div>
         ))}
         {pageItems.length === 0 && <div className="personas-config__empty">Sin resultados.</div>}
@@ -101,6 +238,8 @@ export default function PersonasConfig({ personas }) {
           </button>
         </div>
       )}
+
+      {editing && <EditPersonaModal persona={editing} onClose={() => setEditing(null)} onSaved={closeModal} />}
     </div>
   );
 }

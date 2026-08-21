@@ -21,14 +21,21 @@
 
 .personas-config__row {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 12px;
   background: var(--panel-50);
   border-radius: 9px;
-  flex-wrap: wrap;
   min-height: var(--touch-min);
+}
+
+.personas-config__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .personas-config__name {
@@ -46,6 +53,20 @@
 .personas-config__correo {
   font-size: 11px;
   color: var(--ink-300);
+  margin-top: 1px;
+}
+
+.personas-config__edit-btn {
+  flex-shrink: 0;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--navy-100);
+  border-radius: 8px;
+  color: var(--navy-800);
 }
 
 .personas-config__empty {
@@ -81,4 +102,89 @@
 .personas-config__pager-label {
   font-size: 12px;
   color: var(--ink-300);
+}
+
+/* Modal de edición — blur de fondo para indicar que se puede descartar
+   tocando afuera (Apple HIG: blur/backdrop = dismissal), tarjeta centrada,
+   ruta de escape explícita (Cancelar + Escape + click afuera). */
+.personas-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 60;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .personas-modal__backdrop {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+.personas-modal {
+  background: var(--white);
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .personas-modal {
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+}
+
+.personas-modal__title {
+  font-weight: 800;
+  color: var(--navy-800);
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+.personas-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.personas-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.personas-modal__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.personas-modal__cancel {
+  flex: 1;
+  background: none;
+  color: var(--ink-300);
+  border: 1px solid var(--navy-100);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-weight: 600;
+  min-height: var(--touch-min);
+}
+
+.personas-modal__save {
+  flex: 2;
+  background: var(--gold-500);
+  color: var(--navy-800);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-weight: 700;
+  min-height: var(--touch-min);
 }

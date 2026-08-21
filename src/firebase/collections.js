@@ -171,6 +171,19 @@ export function registerManual(m, activityId) {
   );
 }
 
+export function updatePersona(whatsapp, data) {
+  return updateDoc(doc(db, 'personas', whatsapp), {
+    nombre: data.nombre.trim(),
+    apellidos: data.apellidos.trim(),
+    sexo: data.sexo,
+    fechaNacimiento: data.fechaNacimiento,
+    estaca: data.estaca,
+    barrio: data.barrio.trim(),
+    correo: data.correo.trim(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export function checkIn(inscripcionId) {
   return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
 }
