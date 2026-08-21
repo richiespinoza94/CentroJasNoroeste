@@ -1,0 +1,544 @@
+diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
+index 9656310..8b6c014 100644
+--- a/src/components/Admin/AdminScreen.jsx
++++ b/src/components/Admin/AdminScreen.jsx
+@@ -20,7 +20,7 @@ const TABS = [
+ ];
+ 
+ export default function AdminScreen() {
+-  const { participants, tables, activities, personas, loading } = useFirestoreData();
++  const { participants, tables, activities, personas, activeActivity, loading } = useFirestoreData();
+   const toast = useToast();
+   const [tab, setTab] = useState('dashboard');
+ 
+@@ -88,7 +88,7 @@ export default function AdminScreen() {
+       )}
+ 
+       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
+-      {tab === 'personas' && <PersonasConfig personas={personas} />}
++      {tab === 'personas' && <PersonasConfig personas={personas} participants={participants} activeActivity={activeActivity} />}
+       {tab === 'mesas' && <TablesConfig tables={tables} />}
+       {tab === 'usuarios' && <UsersConfig />}
+     </div>
+diff --git a/src/components/Admin/PersonasConfig.css b/src/components/Admin/PersonasConfig.css
+index 2df193d..03070ca 100644
+--- a/src/components/Admin/PersonasConfig.css
++++ b/src/components/Admin/PersonasConfig.css
+@@ -21,16 +21,23 @@
+ 
+ .personas-config__row {
+   display: flex;
++  align-items: flex-start;
+   justify-content: space-between;
+-  align-items: center;
+-  gap: 8px;
++  gap: 10px;
+   padding: 10px 12px;
+   background: var(--panel-50);
+   border-radius: 9px;
+-  flex-wrap: wrap;
+   min-height: var(--touch-min);
+ }
+ 
++.personas-config__info {
++  flex: 1;
++  min-width: 0;
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++}
++
+ .personas-config__name {
+   font-weight: 700;
+   color: var(--navy-800);
+@@ -46,6 +53,20 @@
+ .personas-config__correo {
+   font-size: 11px;
+   color: var(--ink-300);
++  margin-top: 1px;
++}
++
++.personas-config__edit-btn {
++  flex-shrink: 0;
++  width: var(--touch-min);
++  height: var(--touch-min);
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  background: none;
++  border: 1px solid var(--navy-100);
++  border-radius: 8px;
++  color: var(--navy-800);
+ }
+ 
+ .personas-config__empty {
+@@ -82,3 +103,147 @@
+   font-size: 12px;
+   color: var(--ink-300);
+ }
++
++/* Modal de edición — blur de fondo para indicar que se puede descartar
++   tocando afuera (Apple HIG: blur/backdrop = dismissal), tarjeta centrada,
++   ruta de escape explícita (Cancelar + Escape + click afuera). Anima desde
++   el trigger (slide-up + fade) en vez de aparecer de golpe — mismos tokens
++   de motion (--motion-base, --ease-out) que ToastHost usa para toast-in. */
++.personas-modal__backdrop {
++  position: fixed;
++  inset: 0;
++  background: rgba(15, 23, 42, 0.55);
++  backdrop-filter: blur(2px);
++  display: flex;
++  align-items: flex-end;
++  justify-content: center;
++  z-index: 60;
++  padding: 0;
++  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out);
++}
++
++.personas-modal__backdrop--closing {
++  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out) reverse;
++}
++
++@media (min-width: 640px) {
++  .personas-modal__backdrop {
++    align-items: center;
++    padding: 20px;
++  }
++}
++
++@keyframes personas-modal-backdrop-in {
++  from {
++    opacity: 0;
++  }
++  to {
++    opacity: 1;
++  }
++}
++
++.personas-modal {
++  background: var(--white);
++  width: 100%;
++  max-width: 480px;
++  max-height: 88vh;
++  overflow-y: auto;
++  border-radius: 16px 16px 0 0;
++  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
++  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out);
++}
++
++.personas-modal--closing {
++  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out) reverse;
++}
++
++@keyframes personas-modal-sheet-in {
++  from {
++    opacity: 0;
++    transform: translateY(24px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++@media (min-width: 640px) {
++  .personas-modal {
++    border-radius: var(--radius-lg);
++    padding: 22px;
++  }
++  @keyframes personas-modal-sheet-in {
++    from {
++      opacity: 0;
++      transform: translateY(8px) scale(0.97);
++    }
++    to {
++      opacity: 1;
++      transform: translateY(0) scale(1);
++    }
++  }
++}
++
++.personas-modal__hint {
++  font-size: 12px;
++  color: var(--ink-300);
++  background: var(--panel-50);
++  border-radius: 8px;
++  padding: 10px 12px;
++  line-height: 1.5;
++}
++
++.personas-modal__error {
++  font-size: 12.5px;
++  color: var(--danger-600, var(--danger-500));
++  background: var(--danger-bg, #fef2f2);
++  border-radius: 8px;
++  padding: 10px 12px;
++}
++
++.personas-modal__title {
++  font-weight: 800;
++  color: var(--navy-800);
++  font-size: 16px;
++  margin-bottom: 14px;
++}
++
++.personas-modal__form {
++  display: flex;
++  flex-direction: column;
++  gap: 12px;
++}
++
++.personas-modal__row {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: 10px;
++}
++
++.personas-modal__actions {
++  display: flex;
++  gap: 8px;
++  margin-top: 6px;
++}
++
++.personas-modal__cancel {
++  flex: 1;
++  background: none;
++  color: var(--ink-300);
++  border: 1px solid var(--navy-100);
++  border-radius: var(--radius-sm);
++  padding: 12px;
++  font-weight: 600;
++  min-height: var(--touch-min);
++}
++
++.personas-modal__save {
++  flex: 2;
++  background: var(--gold-500);
++  color: var(--navy-800);
++  border-radius: var(--radius-sm);
++  padding: 12px;
++  font-weight: 700;
++  min-height: var(--touch-min);
++}
+diff --git a/src/components/Admin/PersonasConfig.jsx b/src/components/Admin/PersonasConfig.jsx
+index a270d5c..dc03a3c 100644
+--- a/src/components/Admin/PersonasConfig.jsx
++++ b/src/components/Admin/PersonasConfig.jsx
+@@ -1,4 +1,9 @@
+-import { useMemo, useState } from 'react';
++import { useEffect, useMemo, useRef, useState } from 'react';
++import { useToast } from '../../hooks/useToast.jsx';
++import { updatePersona, setCategoria } from '../../firebase/collections.js';
++import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
++import { PencilIcon } from '../ui/Icon.jsx';
++import Field from '../ui/Field.jsx';
+ import './PersonasConfig.css';
+ 
+ const PAGE_SIZE = 15;
+@@ -33,9 +38,204 @@ function scorePersona(query, persona) {
+   return -1;
+ }
+ 
+-export default function PersonasConfig({ personas }) {
++const FOCUSABLE = 'input, select, textarea, button:not([disabled])';
++
++// Ventana de edición. Se justifica como patrón nuevo (el resto del Admin
++// edita inline arriba de la lista) porque Personas es una lista larga y
++// paginada — reabrir un formulario arriba de la página pierde el contexto
++// de en qué fila estabas.
++//
++// Interacciones cubiertas (ux-ui-pro-max):
++// - Anima desde el trigger (slide-up + fade), no aparece de golpe.
++// - Cierre simétrico: Cancelar, click afuera, o Escape — todos con la misma
++//   animación de salida, nunca un cierre instantáneo.
++// - Foco atrapado dentro del modal (Tab cicla, no se escapa al fondo) y
++//   vuelve al botón que lo abrió al cerrar.
++// - Si guardar falla, el modal se queda abierto con el error visible junto
++//   a las acciones — nunca se descartan los cambios en silencio.
++// - Scroll del fondo bloqueado mientras está abierto.
++function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, onClose }) {
++  const [form, setForm] = useState({
++    nombre: persona.nombre || '',
++    apellidos: persona.apellidos || '',
++    sexo: persona.sexo || '',
++    fechaNacimiento: persona.fechaNacimiento || '',
++    estaca: persona.estaca || '',
++    barrio: persona.barrio || '',
++    correo: persona.correo || '',
++    categoria: inscripcion?.categoria || '',
++  });
++  const [saving, setSaving] = useState(false);
++  const [error, setError] = useState('');
++  const [closing, setClosing] = useState(false);
++  const dialogRef = useRef(null);
++  const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
++
++  function requestClose(saved = false) {
++    setClosing(true);
++    setTimeout(() => {
++      onClose(saved);
++      triggerRef.current?.focus();
++    }, 180);
++  }
++
++  useEffect(() => {
++    dialogRef.current?.querySelector('input,select')?.focus();
++    document.body.style.overflow = 'hidden';
++
++    function handleKey(e) {
++      if (e.key === 'Escape') {
++        requestClose();
++        return;
++      }
++      if (e.key !== 'Tab') return;
++      const focusables = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
++      if (focusables.length === 0) return;
++      const first = focusables[0];
++      const last = focusables[focusables.length - 1];
++      if (e.shiftKey && document.activeElement === first) {
++        e.preventDefault();
++        last.focus();
++      } else if (!e.shiftKey && document.activeElement === last) {
++        e.preventDefault();
++        first.focus();
++      }
++    }
++    document.addEventListener('keydown', handleKey);
++    return () => {
++      document.removeEventListener('keydown', handleKey);
++      document.body.style.overflow = '';
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
++  async function handleSubmit(e) {
++    e.preventDefault();
++    if (!form.nombre.trim() || !form.apellidos.trim()) return;
++    setSaving(true);
++    setError('');
++    try {
++      await updatePersona(persona.id, form);
++      if (inscripcion && form.categoria && form.categoria !== inscripcion.categoria) {
++        await setCategoria(inscripcion.id, form.categoria);
++      }
++      requestClose(true);
++    } catch (err) {
++      // Se queda abierto a propósito — perder los cambios recién escritos
++      // por un error de red sería peor que mostrar el error y dejar reintentar.
++      setError(err.message || 'No se pudo guardar. Intenta de nuevo.');
++      setSaving(false);
++    }
++  }
++
++  const barrioOptions = ESTACAS[form.estaca] || [];
++
++  return (
++    <div className={`personas-modal__backdrop${closing ? ' personas-modal__backdrop--closing' : ''}`} onClick={(e) => e.target === e.currentTarget && requestClose()}>
++      <div className={`personas-modal${closing ? ' personas-modal--closing' : ''}`} role="dialog" aria-modal="true" aria-label="Editar persona" ref={dialogRef}>
++        <div className="personas-modal__title">Editar datos</div>
++        <form onSubmit={handleSubmit} className="personas-modal__form">
++          <div className="personas-modal__row">
++            <Field id="editNombre" label="Nombre">
++              {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
++            </Field>
++            <Field id="editApellidos" label="Apellidos">
++              {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
++            </Field>
++          </div>
++          <div className="personas-modal__row">
++            <Field id="editSexo" label="Sexo">
++              {(a) => (
++                <select {...a} value={form.sexo} onChange={(e) => setField({ sexo: e.target.value })}>
++                  <option value="">—</option>
++                  <option value="M">M</option>
++                  <option value="F">F</option>
++                </select>
++              )}
++            </Field>
++            <Field id="editFecha" label="Fecha de nacimiento">
++              {(a) => <input {...a} type="date" value={form.fechaNacimiento} onChange={(e) => setField({ fechaNacimiento: e.target.value })} />}
++            </Field>
++          </div>
++          <Field id="editEstaca" label="Estaca">
++            {(a) => (
++              <select {...a} value={form.estaca} onChange={(e) => setField({ estaca: e.target.value, barrio: '' })}>
++                <option value="">Elegir</option>
++                {Object.keys(ESTACAS).map((e) => (
++                  <option key={e} value={e}>
++                    {e}
++                  </option>
++                ))}
++                <option value="Otra estaca">Otra estaca</option>
++              </select>
++            )}
++          </Field>
++          <Field id="editBarrio" label="Barrio / Rama">
++            {(a) =>
++              barrioOptions.length > 0 ? (
++                <select {...a} value={form.barrio} onChange={(e) => setField({ barrio: e.target.value })}>
++                  <option value="">Elegir</option>
++                  {barrioOptions.map((b) => (
++                    <option key={b} value={b}>
++                      {b}
++                    </option>
++                  ))}
++                </select>
++              ) : (
++                <input {...a} type="text" value={form.barrio} onChange={(e) => setField({ barrio: e.target.value })} />
++              )
++            }
++          </Field>
++          <Field id="editCorreo" label="Correo" optional>
++            {(a) => <input {...a} type="email" value={form.correo} onChange={(e) => setField({ correo: e.target.value })} />}
++          </Field>
++
++          {inscripcion ? (
++            <Field id="editCategoria" label={`Rol en ${activeActivity?.nombre || 'la actividad activa'}`}>
++              {(a) => (
++                <select {...a} value={form.categoria} onChange={(e) => setField({ categoria: e.target.value })}>
++                  {CATEGORIAS.map((c) => (
++                    <option key={c} value={c}>
++                      {c}
++                    </option>
++                  ))}
++                </select>
++              )}
++            </Field>
++          ) : (
++            <div className="personas-modal__hint">
++              No está inscrito en {activeActivity ? `"${activeActivity.nombre}"` : 'la actividad activa'} — el rol se define al inscribirse.
++            </div>
++          )}
++
++          {error && (
++            <div className="personas-modal__error" role="alert">
++              {error}
++            </div>
++          )}
++
++          <div className="personas-modal__actions">
++            <button type="button" className="personas-modal__cancel press" onClick={requestClose} disabled={saving}>
++              Cancelar
++            </button>
++            <button type="submit" className="personas-modal__save press" disabled={saving}>
++              {saving ? 'Guardando…' : 'Guardar cambios'}
++            </button>
++          </div>
++        </form>
++      </div>
++    </div>
++  );
++}
++
++export default function PersonasConfig({ personas, participants = [], activeActivity }) {
++  const toast = useToast();
+   const [query, setQuery] = useState('');
+   const [page, setPage] = useState(0);
++  const [editing, setEditing] = useState(null);
++  const editTriggerRef = useRef(null);
++
++  const inscripcionByWhatsapp = useMemo(() => new Map(participants.map((p) => [p.whatsapp, p])), [participants]);
+ 
+   const filtered = useMemo(() => {
+     const q = query.trim();
+@@ -58,6 +258,16 @@ export default function PersonasConfig({ personas }) {
+     setPage(0);
+   }
+ 
++  function openEdit(p, triggerEl) {
++    editTriggerRef.current = triggerEl;
++    setEditing(p);
++  }
++
++  function handleClose(saved) {
++    if (saved && editing) toast(`${editing.nombre}: datos actualizados.`);
++    setEditing(null);
++  }
++
+   return (
+     <div className="personas-config">
+       <div className="personas-config__summary">{personas.length} personas registradas en total, en todas las actividades.</div>
+@@ -81,8 +291,16 @@ export default function PersonasConfig({ personas }) {
+               <div className="personas-config__meta">
+                 {p.estaca || '—'} · {p.barrio || '—'} · {p.whatsapp}
+               </div>
++              {p.correo && <div className="personas-config__correo">{p.correo}</div>}
+             </div>
+-            {p.correo && <div className="personas-config__correo">{p.correo}</div>}
++            <button
++              type="button"
++              className="personas-config__edit-btn press"
++              aria-label={`Editar ${p.nombre} ${p.apellidos}`}
++              onClick={(e) => openEdit(p, e.currentTarget)}
++            >
++              <PencilIcon width={16} height={16} />
++            </button>
+           </div>
+         ))}
+         {pageItems.length === 0 && <div className="personas-config__empty">Sin resultados.</div>}
+@@ -101,6 +319,16 @@ export default function PersonasConfig({ personas }) {
+           </button>
+         </div>
+       )}
++
++      {editing && (
++        <EditPersonaModal
++          persona={editing}
++          inscripcion={inscripcionByWhatsapp.get(editing.whatsapp) || null}
++          activeActivity={activeActivity}
++          triggerRef={editTriggerRef}
++          onClose={handleClose}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/src/components/ui/Icon.jsx b/src/components/ui/Icon.jsx
+index bc4a064..ee15f7d 100644
+--- a/src/components/ui/Icon.jsx
++++ b/src/components/ui/Icon.jsx
+@@ -84,6 +84,20 @@ export function ShieldIcon(props) {
+   );
+ }
+ 
++export function PencilIcon(props) {
++  return (
++    <svg {...base} {...props}>
++      <path
++        d="M14.5 4.5l5 5L8 21H3v-5L14.5 4.5Z"
++        stroke="currentColor"
++        strokeWidth="2"
++        strokeLinecap="round"
++        strokeLinejoin="round"
++      />
++    </svg>
++  );
++}
++
+ export function DownloadIcon(props) {
+   return (
+     <svg {...base} {...props}>
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 5a57b8e..bd4ff33 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -171,6 +171,19 @@ export function registerManual(m, activityId) {
+   );
+ }
+ 
++export function updatePersona(whatsapp, data) {
++  return updateDoc(doc(db, 'personas', whatsapp), {
++    nombre: data.nombre.trim(),
++    apellidos: data.apellidos.trim(),
++    sexo: data.sexo,
++    fechaNacimiento: data.fechaNacimiento,
++    estaca: data.estaca,
++    barrio: data.barrio.trim(),
++    correo: data.correo.trim(),
++    updatedAt: serverTimestamp(),
++  });
++}
++
+ export function checkIn(inscripcionId) {
+   return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
+ }
