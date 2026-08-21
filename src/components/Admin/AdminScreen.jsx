@@ -23,15 +23,6 @@ export default function AdminScreen() {
   const { participants, tables, activities, personas, activeActivity, loading } = useFirestoreData();
   const toast = useToast();
   const [tab, setTab] = useState('dashboard');
-
-  if (loading) {
-    return (
-      <div className="admin">
-        <div className="admin__loading">Cargando datos en tiempo real…</div>
-      </div>
-    );
-  }
-
   const [downloading, setDownloading] = useState(false);
 
   async function handleDownloadReport() {
@@ -49,6 +40,14 @@ export default function AdminScreen() {
     } finally {
       setDownloading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="admin">
+        <div className="admin__loading">Cargando datos en tiempo real…</div>
+      </div>
+    );
   }
 
   return (

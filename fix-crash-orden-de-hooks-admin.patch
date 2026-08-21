@@ -1,0 +1,35 @@
+diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
+index 8b6c014..ed718a1 100644
+--- a/src/components/Admin/AdminScreen.jsx
++++ b/src/components/Admin/AdminScreen.jsx
+@@ -23,15 +23,6 @@ export default function AdminScreen() {
+   const { participants, tables, activities, personas, activeActivity, loading } = useFirestoreData();
+   const toast = useToast();
+   const [tab, setTab] = useState('dashboard');
+-
+-  if (loading) {
+-    return (
+-      <div className="admin">
+-        <div className="admin__loading">Cargando datos en tiempo real…</div>
+-      </div>
+-    );
+-  }
+-
+   const [downloading, setDownloading] = useState(false);
+ 
+   async function handleDownloadReport() {
+@@ -51,6 +42,14 @@ export default function AdminScreen() {
+     }
+   }
+ 
++  if (loading) {
++    return (
++      <div className="admin">
++        <div className="admin__loading">Cargando datos en tiempo real…</div>
++      </div>
++    );
++  }
++
+   return (
+     <div className="admin">
+       <h2 className="sr-only">Dashboard — Admin</h2>
