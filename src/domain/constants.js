@@ -45,9 +45,6 @@ export const STATUS_META = {
 
 export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };
 
-export const EVENT_INFO = {
-  name: 'La Velada 2026',
-  date: '15/08/2026',
-  estaca: 'Estaca Ventanilla',
-  anfitrion: 'Centro JAS Noroeste',
-};
+// EVENT_INFO ya no existe como constante fija — cada actividad se crea y
+// activa desde Admin → Actividades (ver firebase/collections.js) y se lee
+// en tiempo real vía useFirestoreData().activeActivity.

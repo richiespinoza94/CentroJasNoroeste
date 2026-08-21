@@ -17,12 +17,12 @@ const TABS = [
 
 export default function ReceptionScreen() {
   const { state, dispatch } = useStore();
-  const { participants, tables, loading } = useFirestoreData();
+  const { participants, tables, loading, activeActivity } = useFirestoreData();
   const { receptionTab } = state;
 
   return (
     <div className="reception">
-      <h2 className="sr-only">Recepción — La Velada 2026</h2>
+      <h2 className="sr-only">Recepción{activeActivity ? ` — ${activeActivity.nombre}` : ''}</h2>
 
       <div className="reception__tabs" role="tablist" aria-label="Secciones de recepción">
         {TABS.map((t) => (

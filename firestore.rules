@@ -63,6 +63,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Activities (PRD generalización, Fase 1): the app is no longer scoped
+    // to one hardcoded event — staff creates/edits activities here and
+    // marks one "activa". Publicly readable (the registration form and the
+    // navbar need the active activity's name/date before anyone logs in),
+    // writable only by admins.
+    match /activities/{activityId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Tables: staff can read and can move people in/out (which only ever
     // touches `occ`, always inside a transaction — see collections.js).
     // Everything else (capacity, reservedFor, creating/deleting a table) is

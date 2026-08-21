@@ -50,6 +50,49 @@ function subscribeWithRetry(queryRef, onData) {
   };
 }
 
+// Activities — publicly readable (see firestore.rules), so this subscribes
+// regardless of auth state, unlike participants/tables below.
+export function subscribeActivities(callback) {
+  return subscribeWithRetry(query(collection(db, 'activities'), orderBy('createdAt', 'desc')), callback);
+}
+
+export async function createActivity(data) {
+  const ref = doc(collection(db, 'activities'));
+  await setDoc(ref, {
+    nombre: data.nombre.trim(),
+    fecha: data.fecha.trim(),
+    lugar: data.lugar.trim(),
+    anfitrion: data.anfitrion.trim(),
+    activa: false,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export function updateActivity(activityId, data) {
+  return updateDoc(doc(db, 'activities', activityId), {
+    nombre: data.nombre.trim(),
+    fecha: data.fecha.trim(),
+    lugar: data.lugar.trim(),
+    anfitrion: data.anfitrion.trim(),
+  });
+}
+
+/**
+ * Exactly one activity is "activa" at a time — that's the one the public
+ * form and the reception/admin headers show. Activating a new one
+ * deactivates whichever was active before, inside the same transaction so
+ * there's never a moment (or a race between two admins) with zero or two
+ * active activities.
+ */
+export async function setActiveActivity(activityId, allActivities) {
+  await runTransaction(db, async (tx) => {
+    const currentActive = allActivities.find((a) => a.activa && a.id !== activityId);
+    if (currentActive) tx.update(doc(db, 'activities', currentActive.id), { activa: false });
+    tx.update(doc(db, 'activities', activityId), { activa: true });
+  });
+}
+
 export function subscribeParticipants(callback) {
   return subscribeWithRetry(query(collection(db, 'participants'), orderBy('createdAt', 'asc')), callback);
 }

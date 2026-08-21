@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
-import { ESTACAS, EVENT_INFO, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
+import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
 import { registerParticipant } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
@@ -10,6 +11,7 @@ const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categori
 
 export default function RegistrationForm() {
   const { state, dispatch } = useStore();
+  const { activeActivity, activitiesLoading } = useFirestoreData();
   const { form, touched, attempted } = state;
   const refs = useRef({});
   const [submitting, setSubmitting] = useState(false);
@@ -61,14 +63,26 @@ export default function RegistrationForm() {
     }
   }
 
+  if (activitiesLoading) {
+    return <div className="reg-form__loading">Cargando actividad…</div>;
+  }
+  if (!activeActivity) {
+    return (
+      <div className="reg-form__loading">
+        No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.
+      </div>
+    );
+  }
+
   return (
     <form className="reg-form" onSubmit={handleSubmit} noValidate>
       <div className="reg-form__header">
-        <div className="reg-form__title">{EVENT_INFO.name}</div>
+        <div className="reg-form__title">{activeActivity.nombre}</div>
         <div className="reg-form__meta">
-          {EVENT_INFO.date} · {EVENT_INFO.estaca}
+          {activeActivity.fecha}
+          {activeActivity.lugar ? ` · ${activeActivity.lugar}` : ''}
         </div>
-        <div className="reg-form__host">Anfitrión: {EVENT_INFO.anfitrion}</div>
+        {activeActivity.anfitrion && <div className="reg-form__host">Anfitrión: {activeActivity.anfitrion}</div>}
       </div>
 
       <div className="reg-form__body">

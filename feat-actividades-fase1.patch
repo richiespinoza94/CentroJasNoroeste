@@ -1,0 +1,560 @@
+diff --git a/firestore.rules b/firestore.rules
+index 95fd47c..2090e84 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -63,6 +63,16 @@ service cloud.firestore {
+       allow delete: if false;
+     }
+ 
++    // Activities (PRD generalización, Fase 1): the app is no longer scoped
++    // to one hardcoded event — staff creates/edits activities here and
++    // marks one "activa". Publicly readable (the registration form and the
++    // navbar need the active activity's name/date before anyone logs in),
++    // writable only by admins.
++    match /activities/{activityId} {
++      allow read: if true;
++      allow write: if isAdmin();
++    }
++
+     // Tables: staff can read and can move people in/out (which only ever
+     // touches `occ`, always inside a transaction — see collections.js).
+     // Everything else (capacity, reservedFor, creating/deleting a table) is
+diff --git a/src/components/Admin/ActivitiesConfig.css b/src/components/Admin/ActivitiesConfig.css
+new file mode 100644
+index 0000000..5b97685
+--- /dev/null
++++ b/src/components/Admin/ActivitiesConfig.css
+@@ -0,0 +1,122 @@
++.activities-config {
++  display: flex;
++  flex-direction: column;
++  gap: 20px;
++}
++
++.activities-config__form {
++  display: flex;
++  flex-direction: column;
++  gap: 10px;
++  padding: 14px;
++  background: var(--panel-50);
++  border-radius: var(--radius-sm);
++}
++
++.activities-config__form-title {
++  font-weight: 700;
++  color: var(--navy-800);
++  font-size: 13.5px;
++}
++
++.activities-config__form-actions {
++  display: flex;
++  gap: 8px;
++  margin-top: 4px;
++}
++
++.activities-config__save {
++  background: var(--gold-500);
++  color: var(--navy-800);
++  padding: 9px 16px;
++  border-radius: var(--radius-sm);
++  font-weight: 700;
++  font-size: 12.5px;
++  min-height: var(--touch-min);
++}
++
++.activities-config__cancel {
++  background: none;
++  color: var(--ink-300);
++  padding: 9px 12px;
++  font-size: 12.5px;
++  min-height: var(--touch-min);
++}
++
++.activities-config__list {
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++}
++
++.activities-config__empty {
++  color: var(--ink-300);
++  font-size: 13px;
++  padding: 10px 0;
++}
++
++.activities-config__row {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  gap: 8px;
++  padding: 10px 12px;
++  background: var(--panel-50);
++  border-radius: 9px;
++  flex-wrap: wrap;
++  min-height: var(--touch-min);
++  border: 1px solid transparent;
++}
++
++.activities-config__row--active {
++  border-color: var(--success-500);
++  background: var(--success-bg);
++}
++
++.activities-config__row-name {
++  font-weight: 700;
++  color: var(--navy-800);
++  font-size: 13.5px;
++  display: flex;
++  align-items: center;
++  gap: 8px;
++}
++
++.activities-config__badge {
++  background: var(--success-500);
++  color: #fff;
++  font-size: 10px;
++  font-weight: 700;
++  padding: 2px 8px;
++  border-radius: 999px;
++}
++
++.activities-config__row-meta {
++  font-size: 11.5px;
++  color: var(--ink-300);
++  margin-top: 2px;
++}
++
++.activities-config__row-actions {
++  display: flex;
++  gap: 6px;
++}
++
++.activities-config__edit,
++.activities-config__activate {
++  font-size: 12px;
++  padding: 7px 12px;
++  border-radius: 7px;
++  min-height: var(--touch-min);
++}
++
++.activities-config__edit {
++  background: none;
++  color: var(--navy-800);
++  border: 1px solid var(--navy-100);
++}
++
++.activities-config__activate {
++  background: var(--navy-800);
++  color: #fff;
++}
+diff --git a/src/components/Admin/ActivitiesConfig.jsx b/src/components/Admin/ActivitiesConfig.jsx
+new file mode 100644
+index 0000000..23f2d06
+--- /dev/null
++++ b/src/components/Admin/ActivitiesConfig.jsx
+@@ -0,0 +1,121 @@
++import { useState } from 'react';
++import { useToast } from '../../hooks/useToast.jsx';
++import { createActivity, updateActivity, setActiveActivity } from '../../firebase/collections.js';
++import Field from '../ui/Field.jsx';
++import './ActivitiesConfig.css';
++
++const EMPTY = { nombre: '', fecha: '', lugar: '', anfitrion: 'Centro JAS Noroeste' };
++
++export default function ActivitiesConfig({ activities }) {
++  const toast = useToast();
++  const [form, setForm] = useState(EMPTY);
++  const [editingId, setEditingId] = useState(null);
++  const [busy, setBusy] = useState(false);
++
++  const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
++
++  function startEdit(a) {
++    setEditingId(a.id);
++    setForm({ nombre: a.nombre, fecha: a.fecha, lugar: a.lugar || '', anfitrion: a.anfitrion || '' });
++  }
++  function cancelEdit() {
++    setEditingId(null);
++    setForm(EMPTY);
++  }
++
++  async function handleSubmit(e) {
++    e.preventDefault();
++    if (!form.nombre.trim() || !form.fecha.trim()) {
++      toast('Nombre y fecha son obligatorios.', 'error');
++      return;
++    }
++    setBusy(true);
++    try {
++      if (editingId) {
++        await updateActivity(editingId, form);
++        toast('Actividad actualizada.');
++      } else {
++        await createActivity(form);
++        toast('Actividad creada. Actívala cuando esté lista.');
++      }
++      cancelEdit();
++    } catch (err) {
++      toast(err.message || 'No se pudo guardar.', 'error');
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  async function handleActivate(a) {
++    if (a.activa) return;
++    setBusy(true);
++    try {
++      await setActiveActivity(a.id, activities);
++      toast(`"${a.nombre}" es ahora la actividad activa.`);
++    } catch (err) {
++      toast(err.message || 'No se pudo activar.', 'error');
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  return (
++    <div className="activities-config">
++      <form className="activities-config__form" onSubmit={handleSubmit}>
++        <div className="activities-config__form-title">{editingId ? 'Editar actividad' : 'Nueva actividad'}</div>
++
++        <Field id="actNombre" label="Nombre">
++          {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} placeholder="Ej. Full Day Centro JAS Noroeste" />}
++        </Field>
++        <Field id="actFecha" label="Fecha">
++          {(a) => <input {...a} type="text" value={form.fecha} onChange={(e) => setField({ fecha: e.target.value })} placeholder="Ej. 29/06/2026" />}
++        </Field>
++        <Field id="actLugar" label="Lugar" optional>
++          {(a) => <input {...a} type="text" value={form.lugar} onChange={(e) => setField({ lugar: e.target.value })} placeholder="Ej. Local Estaca Ventanilla" />}
++        </Field>
++        <Field id="actAnfitrion" label="Anfitrión" optional>
++          {(a) => <input {...a} type="text" value={form.anfitrion} onChange={(e) => setField({ anfitrion: e.target.value })} />}
++        </Field>
++
++        <div className="activities-config__form-actions">
++          <button type="submit" className="activities-config__save press" disabled={busy}>
++            {editingId ? 'Guardar cambios' : 'Crear actividad'}
++          </button>
++          {editingId && (
++            <button type="button" className="activities-config__cancel press" onClick={cancelEdit} disabled={busy}>
++              Cancelar
++            </button>
++          )}
++        </div>
++      </form>
++
++      <div className="activities-config__list">
++        {activities.length === 0 && <div className="activities-config__empty">Todavía no hay actividades creadas.</div>}
++        {activities.map((a) => (
++          <div key={a.id} className={`activities-config__row${a.activa ? ' activities-config__row--active' : ''}`}>
++            <div className="activities-config__row-info">
++              <div className="activities-config__row-name">
++                {a.nombre}
++                {a.activa && <span className="activities-config__badge">Activa</span>}
++              </div>
++              <div className="activities-config__row-meta">
++                {a.fecha}
++                {a.lugar ? ` · ${a.lugar}` : ''}
++              </div>
++            </div>
++            <div className="activities-config__row-actions">
++              <button type="button" className="activities-config__edit press" disabled={busy} onClick={() => startEdit(a)}>
++                Editar
++              </button>
++              {!a.activa && (
++                <button type="button" className="activities-config__activate press" disabled={busy} onClick={() => handleActivate(a)}>
++                  Activar
++                </button>
++              )}
++            </div>
++          </div>
++        ))}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/Admin/AdminScreen.jsx b/src/components/Admin/AdminScreen.jsx
+index 4608e74..a9765b5 100644
+--- a/src/components/Admin/AdminScreen.jsx
++++ b/src/components/Admin/AdminScreen.jsx
+@@ -7,16 +7,18 @@ import StatCards from '../shared/StatCards.jsx';
+ import DistributionBars from '../shared/DistributionBars.jsx';
+ import TablesConfig from './TablesConfig.jsx';
+ import UsersConfig from './UsersConfig.jsx';
++import ActivitiesConfig from './ActivitiesConfig.jsx';
+ import './AdminScreen.css';
+ 
+ const TABS = [
++  { id: 'actividades', label: 'Actividades' },
+   { id: 'dashboard', label: 'Dashboard' },
+   { id: 'mesas', label: 'Mesas' },
+   { id: 'usuarios', label: 'Usuarios' },
+ ];
+ 
+ export default function AdminScreen() {
+-  const { participants, tables, loading } = useFirestoreData();
++  const { participants, tables, activities, loading } = useFirestoreData();
+   const toast = useToast();
+   const [tab, setTab] = useState('dashboard');
+ 
+@@ -83,6 +85,7 @@ export default function AdminScreen() {
+         </>
+       )}
+ 
++      {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
+       {tab === 'mesas' && <TablesConfig tables={tables} />}
+       {tab === 'usuarios' && <UsersConfig />}
+     </div>
+diff --git a/src/components/NavBar.jsx b/src/components/NavBar.jsx
+index 45cbdf7..db673dd 100644
+--- a/src/components/NavBar.jsx
++++ b/src/components/NavBar.jsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { useStore } from '../state/store.jsx';
+ import { useAuth } from '../firebase/AuthProvider.jsx';
++import { useFirestoreData } from '../firebase/DataProvider.jsx';
+ import { signOutStaff } from '../firebase/auth.js';
+ import { ROLE_LABELS } from '../domain/constants.js';
+ import { MenuIcon, DocumentIcon, CheckIcon, ShieldIcon } from './ui/Icon.jsx';
+@@ -9,6 +10,7 @@ import './NavBar.css';
+ export default function NavBar() {
+   const { state, dispatch } = useStore();
+   const { user } = useAuth();
++  const { activeActivity } = useFirestoreData();
+   const isLoggedIn = !!user;
+   const isAdmin = isLoggedIn && user.role === 'admin';
+   const [menuOpen, setMenuOpen] = useState(false);
+@@ -67,7 +69,7 @@ export default function NavBar() {
+         >
+           <MenuIcon width={20} height={20} />
+         </button>
+-        <span className="navbar__brand">Centro JAS · La Velada</span>
++        <span className="navbar__brand">Centro JAS{activeActivity ? ` · ${activeActivity.nombre}` : ''}</span>
+       </div>
+ 
+       {isLoggedIn && (
+diff --git a/src/components/PublicForm/RegistrationForm.css b/src/components/PublicForm/RegistrationForm.css
+index 2856c2e..60407da 100644
+--- a/src/components/PublicForm/RegistrationForm.css
++++ b/src/components/PublicForm/RegistrationForm.css
+@@ -5,6 +5,16 @@
+   box-shadow: var(--shadow-card);
+ }
+ 
++.reg-form__loading {
++  background: var(--white);
++  border-radius: var(--radius-lg);
++  box-shadow: var(--shadow-card);
++  padding: 32px 20px;
++  text-align: center;
++  color: var(--ink-300);
++  font-size: 14px;
++}
++
+ .reg-form__header {
+   background: var(--navy-800);
+   padding: 22px 20px 18px;
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index f91da50..a5ec18f 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -1,6 +1,7 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { useStore } from '../../state/store.jsx';
+-import { ESTACAS, EVENT_INFO, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
++import { useFirestoreData } from '../../firebase/DataProvider.jsx';
++import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
+ import { validateRegistration } from '../../domain/validation.js';
+ import { registerParticipant } from '../../firebase/collections.js';
+ import Field from '../ui/Field.jsx';
+@@ -10,6 +11,7 @@ const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categori
+ 
+ export default function RegistrationForm() {
+   const { state, dispatch } = useStore();
++  const { activeActivity, activitiesLoading } = useFirestoreData();
+   const { form, touched, attempted } = state;
+   const refs = useRef({});
+   const [submitting, setSubmitting] = useState(false);
+@@ -61,14 +63,26 @@ export default function RegistrationForm() {
+     }
+   }
+ 
++  if (activitiesLoading) {
++    return <div className="reg-form__loading">Cargando actividad…</div>;
++  }
++  if (!activeActivity) {
++    return (
++      <div className="reg-form__loading">
++        No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.
++      </div>
++    );
++  }
++
+   return (
+     <form className="reg-form" onSubmit={handleSubmit} noValidate>
+       <div className="reg-form__header">
+-        <div className="reg-form__title">{EVENT_INFO.name}</div>
++        <div className="reg-form__title">{activeActivity.nombre}</div>
+         <div className="reg-form__meta">
+-          {EVENT_INFO.date} · {EVENT_INFO.estaca}
++          {activeActivity.fecha}
++          {activeActivity.lugar ? ` · ${activeActivity.lugar}` : ''}
+         </div>
+-        <div className="reg-form__host">Anfitrión: {EVENT_INFO.anfitrion}</div>
++        {activeActivity.anfitrion && <div className="reg-form__host">Anfitrión: {activeActivity.anfitrion}</div>}
+       </div>
+ 
+       <div className="reg-form__body">
+diff --git a/src/components/Reception/ReceptionScreen.jsx b/src/components/Reception/ReceptionScreen.jsx
+index b6e7bd4..49eb0d7 100644
+--- a/src/components/Reception/ReceptionScreen.jsx
++++ b/src/components/Reception/ReceptionScreen.jsx
+@@ -17,12 +17,12 @@ const TABS = [
+ 
+ export default function ReceptionScreen() {
+   const { state, dispatch } = useStore();
+-  const { participants, tables, loading } = useFirestoreData();
++  const { participants, tables, loading, activeActivity } = useFirestoreData();
+   const { receptionTab } = state;
+ 
+   return (
+     <div className="reception">
+-      <h2 className="sr-only">Recepción — La Velada 2026</h2>
++      <h2 className="sr-only">Recepción{activeActivity ? ` — ${activeActivity.nombre}` : ''}</h2>
+ 
+       <div className="reception__tabs" role="tablist" aria-label="Secciones de recepción">
+         {TABS.map((t) => (
+diff --git a/src/domain/constants.js b/src/domain/constants.js
+index dbc91f2..c3e4e6c 100644
+--- a/src/domain/constants.js
++++ b/src/domain/constants.js
+@@ -45,9 +45,6 @@ export const STATUS_META = {
+ 
+ export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };
+ 
+-export const EVENT_INFO = {
+-  name: 'La Velada 2026',
+-  date: '15/08/2026',
+-  estaca: 'Estaca Ventanilla',
+-  anfitrion: 'Centro JAS Noroeste',
+-};
++// EVENT_INFO ya no existe como constante fija — cada actividad se crea y
++// activa desde Admin → Actividades (ver firebase/collections.js) y se lee
++// en tiempo real vía useFirestoreData().activeActivity.
+diff --git a/src/firebase/DataProvider.jsx b/src/firebase/DataProvider.jsx
+index 118c928..d3f358a 100644
+--- a/src/firebase/DataProvider.jsx
++++ b/src/firebase/DataProvider.jsx
+@@ -1,19 +1,32 @@
+ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+-import { subscribeParticipants, subscribeTables } from './collections.js';
++import { subscribeParticipants, subscribeTables, subscribeActivities } from './collections.js';
+ import { useAuth } from './AuthProvider.jsx';
+ 
+ const DataContext = createContext(null);
+ 
+ // Firestore rules only grant list access on participants/tables to signed-in
+ // staff, so there's nothing to subscribe to on the public registration page
+-// — starting the listeners only once a staff user is present avoids a
+-// permission-denied round-trip on every visitor's phone.
++// — starting those listeners only once a staff user is present avoids a
++// permission-denied round-trip on every visitor's phone. `activities` is
++// different: it's publicly readable on purpose (the registration form needs
++// the active event's name before anyone logs in), so it subscribes
++// unconditionally.
+ export function DataProvider({ children }) {
+   const { user } = useAuth();
+   const [participants, setParticipants] = useState([]);
+   const [tables, setTables] = useState([]);
++  const [activities, setActivities] = useState([]);
+   const [participantsReady, setParticipantsReady] = useState(false);
+   const [tablesReady, setTablesReady] = useState(false);
++  const [activitiesReady, setActivitiesReady] = useState(false);
++
++  useEffect(() => {
++    const unsub = subscribeActivities((rows) => {
++      setActivities(rows);
++      setActivitiesReady(true);
++    });
++    return unsub;
++  }, []);
+ 
+   useEffect(() => {
+     if (!user) {
+@@ -37,9 +50,18 @@ export function DataProvider({ children }) {
+     };
+   }, [user]);
+ 
++  const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
++
+   const value = useMemo(
+-    () => ({ participants, tables, loading: !!user && !(participantsReady && tablesReady) }),
+-    [participants, tables, participantsReady, tablesReady, user]
++    () => ({
++      participants,
++      tables,
++      activities,
++      activeActivity,
++      activitiesLoading: !activitiesReady,
++      loading: !!user && !(participantsReady && tablesReady),
++    }),
++    [participants, tables, activities, activeActivity, activitiesReady, participantsReady, tablesReady, user]
+   );
+   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+ }
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 182f491..1e03b5e 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -50,6 +50,49 @@ function subscribeWithRetry(queryRef, onData) {
+   };
+ }
+ 
++// Activities — publicly readable (see firestore.rules), so this subscribes
++// regardless of auth state, unlike participants/tables below.
++export function subscribeActivities(callback) {
++  return subscribeWithRetry(query(collection(db, 'activities'), orderBy('createdAt', 'desc')), callback);
++}
++
++export async function createActivity(data) {
++  const ref = doc(collection(db, 'activities'));
++  await setDoc(ref, {
++    nombre: data.nombre.trim(),
++    fecha: data.fecha.trim(),
++    lugar: data.lugar.trim(),
++    anfitrion: data.anfitrion.trim(),
++    activa: false,
++    createdAt: serverTimestamp(),
++  });
++  return ref.id;
++}
++
++export function updateActivity(activityId, data) {
++  return updateDoc(doc(db, 'activities', activityId), {
++    nombre: data.nombre.trim(),
++    fecha: data.fecha.trim(),
++    lugar: data.lugar.trim(),
++    anfitrion: data.anfitrion.trim(),
++  });
++}
++
++/**
++ * Exactly one activity is "activa" at a time — that's the one the public
++ * form and the reception/admin headers show. Activating a new one
++ * deactivates whichever was active before, inside the same transaction so
++ * there's never a moment (or a race between two admins) with zero or two
++ * active activities.
++ */
++export async function setActiveActivity(activityId, allActivities) {
++  await runTransaction(db, async (tx) => {
++    const currentActive = allActivities.find((a) => a.activa && a.id !== activityId);
++    if (currentActive) tx.update(doc(db, 'activities', currentActive.id), { activa: false });
++    tx.update(doc(db, 'activities', activityId), { activa: true });
++  });
++}
++
+ export function subscribeParticipants(callback) {
+   return subscribeWithRetry(query(collection(db, 'participants'), orderBy('createdAt', 'asc')), callback);
+ }

@@ -5,6 +5,16 @@
   box-shadow: var(--shadow-card);
 }
 
+.reg-form__loading {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 14px;
+}
+
 .reg-form__header {
   background: var(--navy-800);
   padding: 22px 20px 18px;

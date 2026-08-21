@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store.jsx';
 import { useAuth } from '../firebase/AuthProvider.jsx';
+import { useFirestoreData } from '../firebase/DataProvider.jsx';
 import { signOutStaff } from '../firebase/auth.js';
 import { ROLE_LABELS } from '../domain/constants.js';
 import { MenuIcon, DocumentIcon, CheckIcon, ShieldIcon } from './ui/Icon.jsx';
@@ -9,6 +10,7 @@ import './NavBar.css';
 export default function NavBar() {
   const { state, dispatch } = useStore();
   const { user } = useAuth();
+  const { activeActivity } = useFirestoreData();
   const isLoggedIn = !!user;
   const isAdmin = isLoggedIn && user.role === 'admin';
   const [menuOpen, setMenuOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function NavBar() {
         >
           <MenuIcon width={20} height={20} />
         </button>
-        <span className="navbar__brand">Centro JAS · La Velada</span>
+        <span className="navbar__brand">Centro JAS{activeActivity ? ` · ${activeActivity.nombre}` : ''}</span>
       </div>
 
       {isLoggedIn && (
