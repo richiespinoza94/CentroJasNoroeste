@@ -63,6 +63,10 @@ export default function RegistrationForm() {
     }
   }
 
+  const REQUIRED_FIELDS = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'barrio', 'privacidad'];
+  const filledCount = REQUIRED_FIELDS.filter((f) => !errors[f] && form[f]).length;
+  const progreso = Math.round((filledCount / REQUIRED_FIELDS.length) * 100);
+
   if (activitiesLoading) {
     return <div className="reg-form__loading">Cargando actividad…</div>;
   }
@@ -77,46 +81,63 @@ export default function RegistrationForm() {
   return (
     <form className="reg-form" onSubmit={handleSubmit} noValidate>
       <div className="reg-form__header">
+        <div className="reg-form__logo" aria-hidden="true">
+          JAS
+        </div>
         <div className="reg-form__title">{activeActivity.nombre}</div>
-        <div className="reg-form__meta">
+        <div className="reg-form__badge">
           {activeActivity.fecha}
           {activeActivity.lugar ? ` · ${activeActivity.lugar}` : ''}
         </div>
-        {activeActivity.anfitrion && <div className="reg-form__host">Anfitrión: {activeActivity.anfitrion}</div>}
+        {activeActivity.anfitrion && <div className="reg-form__host">{activeActivity.anfitrion}</div>}
+      </div>
+
+      <div className="reg-form__progress">
+        <div className="reg-form__progress-label">
+          <span>Tu registro</span>
+          <span>{progreso}%</span>
+        </div>
+        <div className="reg-form__progress-track">
+          <div className="reg-form__progress-fill" style={{ width: `${progreso}%` }} />
+        </div>
       </div>
 
       <div className="reg-form__body">
         <p className="reg-form__intro">Completa tus datos para registrarte. Los campos con * son obligatorios.</p>
 
-        <Field id="nombre" label="Nombre" error={showErr('nombre')}>
-          {(a) => (
-            <input
-              {...a}
-              ref={(el) => (refs.current.nombre = el)}
-              type="text"
-              autoComplete="given-name"
-              value={form.nombre}
-              onChange={(e) => setForm({ nombre: e.target.value })}
-              onBlur={() => touch('nombre')}
-              placeholder="Ej. María"
-            />
-          )}
-        </Field>
+        <div className="reg-form__section-title">¿Quién eres?</div>
 
-        <Field id="apellidos" label="Apellidos" error={showErr('apellidos')}>
-          {(a) => (
-            <input
-              {...a}
-              ref={(el) => (refs.current.apellidos = el)}
-              type="text"
-              autoComplete="family-name"
-              value={form.apellidos}
-              onChange={(e) => setForm({ apellidos: e.target.value })}
-              onBlur={() => touch('apellidos')}
-              placeholder="Ej. Ramírez Torres"
-            />
-          )}
-        </Field>
+        <div className="reg-form__row">
+          <Field id="nombre" label="Nombre" error={showErr('nombre')}>
+            {(a) => (
+              <input
+                {...a}
+                ref={(el) => (refs.current.nombre = el)}
+                type="text"
+                autoComplete="given-name"
+                value={form.nombre}
+                onChange={(e) => setForm({ nombre: e.target.value })}
+                onBlur={() => touch('nombre')}
+                placeholder="Ej. María"
+              />
+            )}
+          </Field>
+
+          <Field id="apellidos" label="Apellidos" error={showErr('apellidos')}>
+            {(a) => (
+              <input
+                {...a}
+                ref={(el) => (refs.current.apellidos = el)}
+                type="text"
+                autoComplete="family-name"
+                value={form.apellidos}
+                onChange={(e) => setForm({ apellidos: e.target.value })}
+                onBlur={() => touch('apellidos')}
+                placeholder="Ej. Ramírez Torres"
+              />
+            )}
+          </Field>
+        </div>
 
         <Field id="fechaNacimiento" label="Fecha de nacimiento" error={showErr('fechaNacimiento')}>
           {(a) => (
@@ -156,22 +177,45 @@ export default function RegistrationForm() {
           </Field>
         </div>
 
-        <Field id="whatsapp" label="WhatsApp" error={showErr('whatsapp') || serverError}>
-          {(a) => (
-            <input
-              {...a}
-              ref={(el) => (refs.current.whatsapp = el)}
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              value={form.whatsapp}
-              onChange={(e) => setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
-              onBlur={() => touch('whatsapp')}
-              placeholder="9XXXXXXXX"
-              maxLength={9}
-            />
-          )}
-        </Field>
+        <hr className="reg-form__divider" />
+        <div className="reg-form__section-title">¿Cómo te contactamos?</div>
+
+        <div className="reg-form__row">
+          <Field id="whatsapp" label="WhatsApp" error={showErr('whatsapp') || serverError}>
+            {(a) => (
+              <input
+                {...a}
+                ref={(el) => (refs.current.whatsapp = el)}
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                value={form.whatsapp}
+                onChange={(e) => setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                onBlur={() => touch('whatsapp')}
+                placeholder="9XXXXXXXX"
+                maxLength={9}
+              />
+            )}
+          </Field>
+
+          <Field id="correo" label="Correo" optional error={showErr('correo')}>
+            {(a) => (
+              <input
+                {...a}
+                ref={(el) => (refs.current.correo = el)}
+                type="email"
+                autoComplete="email"
+                value={form.correo}
+                onChange={(e) => setForm({ correo: e.target.value })}
+                onBlur={() => touch('correo')}
+                placeholder="tucorreo@ejemplo.com"
+              />
+            )}
+          </Field>
+        </div>
+
+        <hr className="reg-form__divider" />
+        <div className="reg-form__section-title">¿De dónde eres?</div>
 
         <Field id="estaca" label="Estaca" error={showErr('estaca')}>
           {(a) => (
@@ -237,22 +281,9 @@ export default function RegistrationForm() {
           </Field>
         )}
 
-        <Field id="correo" label="Correo" optional error={showErr('correo')}>
-          {(a) => (
-            <input
-              {...a}
-              ref={(el) => (refs.current.correo = el)}
-              type="email"
-              autoComplete="email"
-              value={form.correo}
-              onChange={(e) => setForm({ correo: e.target.value })}
-              onBlur={() => touch('correo')}
-              placeholder="tucorreo@ejemplo.com"
-            />
-          )}
-        </Field>
+        <hr className="reg-form__divider" />
 
-        <label className="reg-form__consent">
+        <label className={`reg-form__consent${form.privacidad ? ' reg-form__consent--checked' : ''}`}>
           <input
             ref={(el) => (refs.current.privacidad = el)}
             type="checkbox"

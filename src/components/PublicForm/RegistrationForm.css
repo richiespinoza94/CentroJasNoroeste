@@ -15,40 +15,133 @@
   font-size: 14px;
 }
 
+/* Header — gradiente con los mismos navy ya definidos en tokens.css (no se
+   agrega ningún color nuevo), acento dorado inferior, logo circular. */
 .reg-form__header {
-  background: var(--navy-800);
-  padding: 22px 20px 18px;
-  color: var(--white);
+  background: linear-gradient(165deg, var(--navy-900) 0%, var(--navy-800) 55%, var(--navy-700) 100%);
+  padding: 26px 20px 20px;
+  text-align: center;
+  position: relative;
+}
+.reg-form__header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
+}
+
+.reg-form__logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--navy-800);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.5px;
 }
 
 .reg-form__title {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--white);
+  font-family: var(--font-display);
 }
 
-.reg-form__meta {
-  font-size: 13px;
-  opacity: 0.85;
-  margin-top: 4px;
+.reg-form__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
+  color: var(--navy-800);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  margin-top: 10px;
 }
 
 .reg-form__host {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 2px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 8px;
+}
+
+/* Barra de progreso */
+.reg-form__progress {
+  padding: 14px 20px 0;
+}
+.reg-form__progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-300);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.reg-form__progress-track {
+  height: 5px;
+  background: var(--navy-100);
+  border-radius: 3px;
+}
+.reg-form__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
+  border-radius: 3px;
+  transition: width var(--motion-base) var(--ease-out);
 }
 
 .reg-form__body {
-  padding: 18px 20px 32px;
+  padding: 16px 20px 32px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 13px;
 }
 
 .reg-form__intro {
   font-size: 13px;
   color: var(--ink-500);
   line-height: 1.5;
+  margin-bottom: 2px;
+}
+
+.reg-form__section-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--navy-800);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reg-form__section-title::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, var(--gold-500), #f7c948);
+  flex-shrink: 0;
+}
+
+.reg-form__divider {
+  border: none;
+  border-top: 1px solid var(--line-100);
+  margin: 2px 0;
 }
 
 .reg-form__row {
@@ -59,26 +152,63 @@
   flex: 1;
   min-width: 0;
 }
+@media (max-width: 360px) {
+  .reg-form__row {
+    flex-direction: column;
+  }
+}
+
+/* Inputs — tinte suave reusando --navy-100 ya existente (no es un color
+   nuevo), foco en navy con halo, igual que el resto de la app pero un poco
+   más marcado para que el formulario público se sienta "vivo" al tocar. */
+.reg-form .field__control {
+  background: var(--navy-100);
+  border-color: var(--line-200);
+  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+}
+.reg-form .field__control:focus {
+  background: var(--white);
+  border-color: var(--navy-800);
+  box-shadow: 0 0 0 3px rgba(26, 58, 107, 0.12);
+}
+.reg-form .field__control--invalid {
+  background: #fff5f5;
+}
 
 .reg-form__consent {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  margin-top: 4px;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--navy-100);
+  border: 1.5px solid var(--line-200);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+}
+.reg-form__consent--checked {
+  background: var(--success-bg);
+  border-color: var(--success-500);
+}
+.reg-form__consent input[type='checkbox'] {
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 .reg-form__consent-text {
   font-size: 12.5px;
   color: var(--ink-700);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .reg-form__submit {
-  margin-top: 8px;
-  background: var(--gold-500);
+  margin-top: 6px;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
   color: var(--navy-800);
-  padding: 14px;
+  padding: 15px;
   border-radius: var(--radius-md);
   font-weight: 800;
   font-size: 15px;
   font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 16px rgba(245, 166, 35, 0.35);
 }
