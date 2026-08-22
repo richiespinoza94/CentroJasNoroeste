@@ -1,0 +1,183 @@
+diff --git a/src/App.css b/src/App.css
+index 8ae6b21..28e51d7 100644
+--- a/src/App.css
++++ b/src/App.css
+@@ -15,3 +15,10 @@
+ .app-main__inner {
+   width: 100%;
+ }
++
++.app-screen-loading {
++  text-align: center;
++  color: var(--ink-300);
++  font-size: 13.5px;
++  padding: 40px 0;
++}
+diff --git a/src/App.jsx b/src/App.jsx
+index 2022d37..d0297fd 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -1,14 +1,26 @@
+-import { useEffect } from 'react';
++import { Suspense, lazy, useEffect } from 'react';
+ import { useStore } from './state/store.jsx';
+ import { useAuth } from './firebase/AuthProvider.jsx';
+ import NavBar from './components/NavBar.jsx';
+ import ToastHost from './components/ui/ToastHost.jsx';
+ import PublicScreen from './components/PublicForm/PublicScreen.jsx';
+-import LoginScreen from './components/Login/LoginScreen.jsx';
+-import ReceptionScreen from './components/Reception/ReceptionScreen.jsx';
+-import AdminScreen from './components/Admin/AdminScreen.jsx';
+ import './App.css';
+ 
++// La gran mayoría de las visitas son gente escaneando un QR para llenar el
++// formulario público — no tiene sentido que esas visitas descarguen todo
++// el código de Login/Recepción/Admin (dashboards, gráficos, generación de
++// QR, exportación a Excel...) antes de poder ver el formulario. Separar
++// estas tres en sus propios chunks, cargados solo cuando realmente se
++// navega a esa pantalla, es lo que más reduce el peso inicial para el caso
++// más común.
++const LoginScreen = lazy(() => import('./components/Login/LoginScreen.jsx'));
++const ReceptionScreen = lazy(() => import('./components/Reception/ReceptionScreen.jsx'));
++const AdminScreen = lazy(() => import('./components/Admin/AdminScreen.jsx'));
++
++function ScreenLoading() {
++  return <div className="app-screen-loading">Cargando…</div>;
++}
++
+ export default function App() {
+   const { state, dispatch } = useStore();
+   const { user, loading: authLoading } = useAuth();
+@@ -35,9 +47,11 @@ export default function App() {
+       <main className="app-main">
+         <div className="app-main__inner">
+           {!authLoading && state.screen === 'publico' && <PublicScreen />}
+-          {!authLoading && state.screen === 'login' && <LoginScreen />}
+-          {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
+-          {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
++          <Suspense fallback={<ScreenLoading />}>
++            {!authLoading && state.screen === 'login' && <LoginScreen />}
++            {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
++            {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
++          </Suspense>
+         </div>
+       </main>
+       <ToastHost />
+diff --git a/src/components/Admin/ActivityHistory.css b/src/components/Admin/ActivityHistory.css
+index e99eae9..0ea545a 100644
+--- a/src/components/Admin/ActivityHistory.css
++++ b/src/components/Admin/ActivityHistory.css
+@@ -96,3 +96,25 @@
+   font-size: 13px;
+   padding: 20px 0;
+ }
++
++.activity-history__toolbar {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++}
++.activity-history__toolbar .activity-history__selector {
++  flex: 1;
++}
++.activity-history__refresh {
++  flex-shrink: 0;
++  width: var(--touch-min);
++  height: var(--touch-min);
++  border-radius: 50%;
++  border: 1.5px solid var(--line-200);
++  background: var(--white);
++  color: var(--navy-800);
++  font-size: 15px;
++}
++.activity-history__refresh:disabled {
++  opacity: 0.5;
++}
+diff --git a/src/components/Admin/ActivityHistory.jsx b/src/components/Admin/ActivityHistory.jsx
+index 3bb3c3c..b53ba5b 100644
+--- a/src/components/Admin/ActivityHistory.jsx
++++ b/src/components/Admin/ActivityHistory.jsx
+@@ -7,6 +7,13 @@ import './ActivityHistory.css';
+ 
+ const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
+ 
++// AdminScreen desmonta cada pestaña al cambiar ({tab === X && <Comp/>}), así
++// que sin esta caché a nivel de módulo, entrar y salir de Historial repetía
++// la lectura completa de `inscripciones` cada vez — aunque no hubiera
++// cambiado nada. Vive fuera del componente a propósito, para sobrevivir a
++// los remounts; se invalida solo cuando el staff toca "Actualizar".
++let cachedInscripciones = null;
++
+ // Las actividades guardan la fecha como texto libre ("15/08/2026") — esto
+ // la vuelve ordenable sin forzar un <input type="date"> en el formulario
+ // de Actividades, que ya funciona bien como texto simple.
+@@ -17,13 +24,29 @@ function parseFecha(fecha) {
+ }
+ 
+ export default function ActivityHistory({ activities, personas }) {
+-  const [inscripciones, setInscripciones] = useState(null); // null = cargando
++  const [inscripciones, setInscripciones] = useState(cachedInscripciones); // null solo si nunca se cargó
++  const [refreshing, setRefreshing] = useState(false);
+   const [selectedId, setSelectedId] = useState(null);
+ 
+   useEffect(() => {
+-    fetchAllInscripciones().then(setInscripciones);
++    if (cachedInscripciones) return; // ya hay datos en caché — no repetir la lectura
++    fetchAllInscripciones().then((rows) => {
++      cachedInscripciones = rows;
++      setInscripciones(rows);
++    });
+   }, []);
+ 
++  async function handleRefresh() {
++    setRefreshing(true);
++    try {
++      const rows = await fetchAllInscripciones();
++      cachedInscripciones = rows;
++      setInscripciones(rows);
++    } finally {
++      setRefreshing(false);
++    }
++  }
++
+   const byActivity = useMemo(() => {
+     const map = new Map();
+     if (!inscripciones) return map;
+@@ -78,19 +101,24 @@ export default function ActivityHistory({ activities, personas }) {
+     <div className="activity-history">
+       <AttendanceTrendChart data={trendData} />
+ 
+-      <div className="activity-history__selector" role="tablist" aria-label="Elegir actividad">
+-        {sortedActivities.map((a) => (
+-          <button
+-            key={a.id}
+-            type="button"
+-            role="tab"
+-            aria-selected={selected?.id === a.id}
+-            className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
+-            onClick={() => setSelectedId(a.id)}
+-          >
+-            {a.nombre}
+-          </button>
+-        ))}
++      <div className="activity-history__toolbar">
++        <div className="activity-history__selector" role="tablist" aria-label="Elegir actividad">
++          {sortedActivities.map((a) => (
++            <button
++              key={a.id}
++              type="button"
++              role="tab"
++              aria-selected={selected?.id === a.id}
++              className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
++              onClick={() => setSelectedId(a.id)}
++            >
++              {a.nombre}
++            </button>
++          ))}
++        </div>
++        <button type="button" className="activity-history__refresh press" disabled={refreshing} onClick={handleRefresh} aria-label="Actualizar historial">
++          {refreshing ? '…' : '↻'}
++        </button>
+       </div>
+ 
+       {selected && (

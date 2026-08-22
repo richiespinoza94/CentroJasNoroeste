@@ -15,3 +15,10 @@
 .app-main__inner {
   width: 100%;
 }
+
+.app-screen-loading {
+  text-align: center;
+  color: var(--ink-300);
+  font-size: 13.5px;
+  padding: 40px 0;
+}

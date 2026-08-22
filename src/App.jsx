@@ -1,13 +1,25 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useStore } from './state/store.jsx';
 import { useAuth } from './firebase/AuthProvider.jsx';
 import NavBar from './components/NavBar.jsx';
 import ToastHost from './components/ui/ToastHost.jsx';
 import PublicScreen from './components/PublicForm/PublicScreen.jsx';
-import LoginScreen from './components/Login/LoginScreen.jsx';
-import ReceptionScreen from './components/Reception/ReceptionScreen.jsx';
-import AdminScreen from './components/Admin/AdminScreen.jsx';
 import './App.css';
+
+// La gran mayoría de las visitas son gente escaneando un QR para llenar el
+// formulario público — no tiene sentido que esas visitas descarguen todo
+// el código de Login/Recepción/Admin (dashboards, gráficos, generación de
+// QR, exportación a Excel...) antes de poder ver el formulario. Separar
+// estas tres en sus propios chunks, cargados solo cuando realmente se
+// navega a esa pantalla, es lo que más reduce el peso inicial para el caso
+// más común.
+const LoginScreen = lazy(() => import('./components/Login/LoginScreen.jsx'));
+const ReceptionScreen = lazy(() => import('./components/Reception/ReceptionScreen.jsx'));
+const AdminScreen = lazy(() => import('./components/Admin/AdminScreen.jsx'));
+
+function ScreenLoading() {
+  return <div className="app-screen-loading">Cargando…</div>;
+}
 
 export default function App() {
   const { state, dispatch } = useStore();
@@ -35,9 +47,11 @@ export default function App() {
       <main className="app-main">
         <div className="app-main__inner">
           {!authLoading && state.screen === 'publico' && <PublicScreen />}
-          {!authLoading && state.screen === 'login' && <LoginScreen />}
-          {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
-          {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
+          <Suspense fallback={<ScreenLoading />}>
+            {!authLoading && state.screen === 'login' && <LoginScreen />}
+            {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
+            {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
+          </Suspense>
         </div>
       </main>
       <ToastHost />

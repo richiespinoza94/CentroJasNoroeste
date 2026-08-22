@@ -7,6 +7,13 @@ import './ActivityHistory.css';
 
 const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
 
+// AdminScreen desmonta cada pestaña al cambiar ({tab === X && <Comp/>}), así
+// que sin esta caché a nivel de módulo, entrar y salir de Historial repetía
+// la lectura completa de `inscripciones` cada vez — aunque no hubiera
+// cambiado nada. Vive fuera del componente a propósito, para sobrevivir a
+// los remounts; se invalida solo cuando el staff toca "Actualizar".
+let cachedInscripciones = null;
+
 // Las actividades guardan la fecha como texto libre ("15/08/2026") — esto
 // la vuelve ordenable sin forzar un <input type="date"> en el formulario
 // de Actividades, que ya funciona bien como texto simple.
@@ -17,12 +24,28 @@ function parseFecha(fecha) {
 }
 
 export default function ActivityHistory({ activities, personas }) {
-  const [inscripciones, setInscripciones] = useState(null); // null = cargando
+  const [inscripciones, setInscripciones] = useState(cachedInscripciones); // null solo si nunca se cargó
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
-    fetchAllInscripciones().then(setInscripciones);
+    if (cachedInscripciones) return; // ya hay datos en caché — no repetir la lectura
+    fetchAllInscripciones().then((rows) => {
+      cachedInscripciones = rows;
+      setInscripciones(rows);
+    });
   }, []);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const rows = await fetchAllInscripciones();
+      cachedInscripciones = rows;
+      setInscripciones(rows);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const byActivity = useMemo(() => {
     const map = new Map();
@@ -78,19 +101,24 @@ export default function ActivityHistory({ activities, personas }) {
     <div className="activity-history">
       <AttendanceTrendChart data={trendData} />
 
-      <div className="activity-history__selector" role="tablist" aria-label="Elegir actividad">
-        {sortedActivities.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            role="tab"
-            aria-selected={selected?.id === a.id}
-            className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
-            onClick={() => setSelectedId(a.id)}
-          >
-            {a.nombre}
-          </button>
-        ))}
+      <div className="activity-history__toolbar">
+        <div className="activity-history__selector" role="tablist" aria-label="Elegir actividad">
+          {sortedActivities.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="tab"
+              aria-selected={selected?.id === a.id}
+              className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
+              onClick={() => setSelectedId(a.id)}
+            >
+              {a.nombre}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="activity-history__refresh press" disabled={refreshing} onClick={handleRefresh} aria-label="Actualizar historial">
+          {refreshing ? '…' : '↻'}
+        </button>
       </div>
 
       {selected && (
