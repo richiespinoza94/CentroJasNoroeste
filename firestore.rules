@@ -94,19 +94,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Índice público mínimo (Fase 2 — identidad única en el formulario): ID
-    // aleatorio a propósito, nunca el whatsapp — ver nota en collections.js.
-    // Solo nombre completo + estaca, jamás datos de contacto.
-    match /personas_publico/{docId} {
+    // Índice público (Fase 2 — identidad única en el formulario): ID =
+    // whatsapp, a propósito — es lo que permite que al confirmar "¿eres
+    // tú?" el formulario pueda enlazar directamente con esa persona en vez
+    // de crear una nueva (decisión tomada con el cliente: costo/beneficio
+    // favorece esto sobre mantener un backend aparte solo para ocultarlo).
+    // Solo nombre completo + estaca — nunca correo, fecha de nacimiento o
+    // barrio.
+    match /personas_publico/{whatsapp} {
       function isValidPublicIndexWrite() {
         let d = request.resource.data;
-        return d.nombreCompleto is string && d.nombreCompleto.size() > 0 && d.nombreCompleto.size() <= 90
+        return whatsapp.matches('^9[0-9]{8}$')
+          && d.nombreCompleto is string && d.nombreCompleto.size() > 0 && d.nombreCompleto.size() <= 90
           && d.estaca is string && d.estaca.size() <= 40
           && d.keys().hasOnly(['nombreCompleto', 'estaca']);
       }
       allow read: if true;
-      allow create: if isValidPublicIndexWrite();
-      allow update, delete: if false;
+      allow create, update: if isValidPublicIndexWrite();
+      allow delete: if false;
     }
 
     // Tables (mesas) se sacó del núcleo — ver README/patch de referencia si

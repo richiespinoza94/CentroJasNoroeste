@@ -55,12 +55,23 @@ export default function RegistrationForm() {
 
   // Solo avisa con coincidencia fuerte (nombre completo casi exacto) — el
   // objetivo es evitar duplicar identidad, no generar ruido con nombres
-  // comunes a medio escribir.
+  // comunes a medio escribir. Deja de avisar en cuanto la persona confirma
+  // o descarta, aunque siga editando el nombre después.
+  const [matchResolved, setMatchResolved] = useState(false);
   const possibleMatch = useMemo(() => {
     const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
-    if (nombreCompleto.length < 6 || matchDismissed) return null;
+    if (nombreCompleto.length < 6 || matchDismissed || matchResolved) return null;
     return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
-  }, [publicIndex, form.nombre, form.apellidos, matchDismissed]);
+  }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
+
+  function handleConfirmMatch() {
+    setForm({ whatsapp: possibleMatch.whatsapp });
+    setMatchResolved(true);
+    touch('whatsapp');
+  }
+  function handleDenyMatch() {
+    setMatchDismissed(true);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -83,7 +94,12 @@ export default function RegistrationForm() {
         },
       });
     } catch (err) {
-      setServerError(err.message);
+      // El único motivo por el que esta transacción específica falla es
+      // "ya existe una inscripción con este WhatsApp para esta actividad"
+      // (ver registerForActivity en collections.js) — así que siempre es
+      // seguro mostrar el mensaje contextualizado con el nombre real de la
+      // actividad, en vez del texto genérico que devuelve el backend.
+      setServerError(`Ya estás registrado(a) para "${activeActivity.nombre}". No necesitas volver a inscribirte.`);
       touch('whatsapp');
       refs.current.whatsapp?.focus();
     } finally {
@@ -169,13 +185,23 @@ export default function RegistrationForm() {
 
         {possibleMatch && (
           <div className="reg-form__match-hint" role="status">
-            <span>
-              👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). Si eres tú y ya te registraste en otra
-              actividad, usa el mismo número de WhatsApp de esa vez para no duplicar tu registro.
-            </span>
-            <button type="button" className="reg-form__match-dismiss" onClick={() => setMatchDismissed(true)} aria-label="Cerrar aviso">
-              ✕
-            </button>
+            <div className="reg-form__match-text">
+              👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). ¿Eres tú?
+            </div>
+            <div className="reg-form__match-actions">
+              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch}>
+                Sí, soy yo
+              </button>
+              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch}>
+                No, es otra persona
+              </button>
+            </div>
+          </div>
+        )}
+
+        {matchResolved && (
+          <div className="reg-form__match-confirmed" role="status">
+            ✓ Usamos tu WhatsApp de tu registro anterior — así no quedas duplicado(a).
           </div>
         )}
 

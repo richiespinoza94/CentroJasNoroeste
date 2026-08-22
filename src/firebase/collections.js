@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDocs,
@@ -102,20 +101,17 @@ export async function setActiveActivity(activityId, allActivities) {
 // single joined "participant" shape — see DataProvider.jsx — so this is the
 // only file that needs to know the data lives in two collections now.
 // Fase 2 — identidad única en el formulario público. `personas_publico` es
-// un índice de solo-lectura pública con la exposición mínima que se decidió
-// (nombre completo + estaca, nada de WhatsApp/correo/barrio) para poder
-// avisar "ya vimos a alguien parecido" sin filtrar datos de contacto. ID
-// aleatorio a propósito — un ID = whatsapp en una colección listable
-// públicamente sería el dato sensible filtrado, aunque el documento en sí
-// no tenga el campo. Create-only, sin dedupe: es un aviso suave, no un
-// registro de verdad, así que una entrada repetida por reinscripción es un
-// costo aceptable frente a la complejidad de mantenerlo sincronizado.
+// un índice de lectura pública con la exposición mínima decidida (nombre
+// completo + estaca, nunca correo/fecha de nacimiento/barrio). Doc ID =
+// whatsapp a propósito: es lo que permite que el formulario, al confirmar
+// "¿eres tú?", enlace directo con esa persona en vez de crear una nueva —
+// ver README/conversación de diseño para el trade-off aceptado.
 export function subscribePublicIndex() {
-  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => d.data()));
+  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() })));
 }
 
-function mirrorPublicIndex(nombreCompleto, estaca) {
-  addDoc(collection(db, 'personas_publico'), { nombreCompleto, estaca }).catch(() => {});
+function mirrorPublicIndex(whatsapp, nombreCompleto, estaca) {
+  setDoc(doc(db, 'personas_publico', whatsapp), { nombreCompleto, estaca }).catch(() => {});
 }
 
 const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
@@ -166,7 +162,7 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
 }
 
 export function registerParticipant(form, activityId) {
-  mirrorPublicIndex(`${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
+  mirrorPublicIndex(form.whatsapp, `${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
   return registerForActivity(
     activityId,
     form.whatsapp,
@@ -184,7 +180,7 @@ export function registerParticipant(form, activityId) {
 }
 
 export function registerManual(m, activityId) {
-  mirrorPublicIndex(`${m.nombre.trim()} ${m.apellidos.trim()}`, m.estaca);
+  mirrorPublicIndex(m.whatsapp, `${m.nombre.trim()} ${m.apellidos.trim()}`, m.estaca);
   return registerForActivity(
     activityId,
     m.whatsapp,
@@ -194,6 +190,7 @@ export function registerManual(m, activityId) {
 }
 
 export function updatePersona(whatsapp, data) {
+  mirrorPublicIndex(whatsapp, `${data.nombre.trim()} ${data.apellidos.trim()}`, data.estaca);
   return updateDoc(doc(db, 'personas', whatsapp), {
     nombre: data.nombre.trim(),
     apellidos: data.apellidos.trim(),

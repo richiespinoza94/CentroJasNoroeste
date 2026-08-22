@@ -1,0 +1,244 @@
+diff --git a/firestore.rules b/firestore.rules
+index 2d243ce..40a5f34 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -94,19 +94,24 @@ service cloud.firestore {
+       allow write: if isAdmin();
+     }
+ 
+-    // Índice público mínimo (Fase 2 — identidad única en el formulario): ID
+-    // aleatorio a propósito, nunca el whatsapp — ver nota en collections.js.
+-    // Solo nombre completo + estaca, jamás datos de contacto.
+-    match /personas_publico/{docId} {
++    // Índice público (Fase 2 — identidad única en el formulario): ID =
++    // whatsapp, a propósito — es lo que permite que al confirmar "¿eres
++    // tú?" el formulario pueda enlazar directamente con esa persona en vez
++    // de crear una nueva (decisión tomada con el cliente: costo/beneficio
++    // favorece esto sobre mantener un backend aparte solo para ocultarlo).
++    // Solo nombre completo + estaca — nunca correo, fecha de nacimiento o
++    // barrio.
++    match /personas_publico/{whatsapp} {
+       function isValidPublicIndexWrite() {
+         let d = request.resource.data;
+-        return d.nombreCompleto is string && d.nombreCompleto.size() > 0 && d.nombreCompleto.size() <= 90
++        return whatsapp.matches('^9[0-9]{8}$')
++          && d.nombreCompleto is string && d.nombreCompleto.size() > 0 && d.nombreCompleto.size() <= 90
+           && d.estaca is string && d.estaca.size() <= 40
+           && d.keys().hasOnly(['nombreCompleto', 'estaca']);
+       }
+       allow read: if true;
+-      allow create: if isValidPublicIndexWrite();
+-      allow update, delete: if false;
++      allow create, update: if isValidPublicIndexWrite();
++      allow delete: if false;
+     }
+ 
+     // Tables (mesas) se sacó del núcleo — ver README/patch de referencia si
+diff --git a/src/components/PublicForm/RegistrationForm.css b/src/components/PublicForm/RegistrationForm.css
+index e6800ba..da2137d 100644
+--- a/src/components/PublicForm/RegistrationForm.css
++++ b/src/components/PublicForm/RegistrationForm.css
+@@ -179,30 +179,46 @@
+ 
+ .reg-form__match-hint {
+   display: flex;
+-  align-items: flex-start;
+-  gap: 8px;
++  flex-direction: column;
++  gap: 10px;
+   background: #eef4fd;
+   border-left: 3px solid var(--navy-700);
+   border-radius: 0 8px 8px 0;
+-  padding: 10px 12px;
+-  font-size: 12px;
++  padding: 12px 14px;
++  font-size: 12.5px;
+   color: var(--navy-800);
+   line-height: 1.5;
+ }
+-.reg-form__match-hint span {
+-  flex: 1;
++.reg-form__match-actions {
++  display: flex;
++  gap: 8px;
+ }
+-.reg-form__match-dismiss {
+-  flex-shrink: 0;
+-  background: none;
+-  color: var(--ink-300);
++.reg-form__match-yes,
++.reg-form__match-no {
++  flex: 1;
+   min-height: var(--touch-min);
+-  min-width: var(--touch-min);
+-  margin: -12px -8px -12px 0;
+-  font-size: 13px;
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
++  border-radius: 8px;
++  font-size: 12.5px;
++  font-weight: 700;
++}
++.reg-form__match-yes {
++  background: var(--navy-800);
++  color: var(--white);
++}
++.reg-form__match-no {
++  background: var(--white);
++  color: var(--navy-800);
++  border: 1.5px solid var(--line-200);
++}
++
++.reg-form__match-confirmed {
++  background: var(--success-bg);
++  border-left: 3px solid var(--success-500);
++  border-radius: 0 8px 8px 0;
++  padding: 10px 12px;
++  font-size: 12px;
++  color: var(--success-fg);
++  line-height: 1.5;
+ }
+ 
+ .reg-form__consent {
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index fef2440..385abe7 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -55,12 +55,23 @@ export default function RegistrationForm() {
+ 
+   // Solo avisa con coincidencia fuerte (nombre completo casi exacto) — el
+   // objetivo es evitar duplicar identidad, no generar ruido con nombres
+-  // comunes a medio escribir.
++  // comunes a medio escribir. Deja de avisar en cuanto la persona confirma
++  // o descarta, aunque siga editando el nombre después.
++  const [matchResolved, setMatchResolved] = useState(false);
+   const possibleMatch = useMemo(() => {
+     const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
+-    if (nombreCompleto.length < 6 || matchDismissed) return null;
++    if (nombreCompleto.length < 6 || matchDismissed || matchResolved) return null;
+     return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
+-  }, [publicIndex, form.nombre, form.apellidos, matchDismissed]);
++  }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
++
++  function handleConfirmMatch() {
++    setForm({ whatsapp: possibleMatch.whatsapp });
++    setMatchResolved(true);
++    touch('whatsapp');
++  }
++  function handleDenyMatch() {
++    setMatchDismissed(true);
++  }
+ 
+   async function handleSubmit(e) {
+     e.preventDefault();
+@@ -83,7 +94,12 @@ export default function RegistrationForm() {
+         },
+       });
+     } catch (err) {
+-      setServerError(err.message);
++      // El único motivo por el que esta transacción específica falla es
++      // "ya existe una inscripción con este WhatsApp para esta actividad"
++      // (ver registerForActivity en collections.js) — así que siempre es
++      // seguro mostrar el mensaje contextualizado con el nombre real de la
++      // actividad, en vez del texto genérico que devuelve el backend.
++      setServerError(`Ya estás registrado(a) para "${activeActivity.nombre}". No necesitas volver a inscribirte.`);
+       touch('whatsapp');
+       refs.current.whatsapp?.focus();
+     } finally {
+@@ -169,13 +185,23 @@ export default function RegistrationForm() {
+ 
+         {possibleMatch && (
+           <div className="reg-form__match-hint" role="status">
+-            <span>
+-              👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). Si eres tú y ya te registraste en otra
+-              actividad, usa el mismo número de WhatsApp de esa vez para no duplicar tu registro.
+-            </span>
+-            <button type="button" className="reg-form__match-dismiss" onClick={() => setMatchDismissed(true)} aria-label="Cerrar aviso">
+-              ✕
+-            </button>
++            <div className="reg-form__match-text">
++              👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). ¿Eres tú?
++            </div>
++            <div className="reg-form__match-actions">
++              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch}>
++                Sí, soy yo
++              </button>
++              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch}>
++                No, es otra persona
++              </button>
++            </div>
++          </div>
++        )}
++
++        {matchResolved && (
++          <div className="reg-form__match-confirmed" role="status">
++            ✓ Usamos tu WhatsApp de tu registro anterior — así no quedas duplicado(a).
+           </div>
+         )}
+ 
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index f4f2c90..bd5678d 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -1,5 +1,4 @@
+ import {
+-  addDoc,
+   collection,
+   doc,
+   getDocs,
+@@ -102,20 +101,17 @@ export async function setActiveActivity(activityId, allActivities) {
+ // single joined "participant" shape — see DataProvider.jsx — so this is the
+ // only file that needs to know the data lives in two collections now.
+ // Fase 2 — identidad única en el formulario público. `personas_publico` es
+-// un índice de solo-lectura pública con la exposición mínima que se decidió
+-// (nombre completo + estaca, nada de WhatsApp/correo/barrio) para poder
+-// avisar "ya vimos a alguien parecido" sin filtrar datos de contacto. ID
+-// aleatorio a propósito — un ID = whatsapp en una colección listable
+-// públicamente sería el dato sensible filtrado, aunque el documento en sí
+-// no tenga el campo. Create-only, sin dedupe: es un aviso suave, no un
+-// registro de verdad, así que una entrada repetida por reinscripción es un
+-// costo aceptable frente a la complejidad de mantenerlo sincronizado.
++// un índice de lectura pública con la exposición mínima decidida (nombre
++// completo + estaca, nunca correo/fecha de nacimiento/barrio). Doc ID =
++// whatsapp a propósito: es lo que permite que el formulario, al confirmar
++// "¿eres tú?", enlace directo con esa persona en vez de crear una nueva —
++// ver README/conversación de diseño para el trade-off aceptado.
+ export function subscribePublicIndex() {
+-  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => d.data()));
++  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() })));
+ }
+ 
+-function mirrorPublicIndex(nombreCompleto, estaca) {
+-  addDoc(collection(db, 'personas_publico'), { nombreCompleto, estaca }).catch(() => {});
++function mirrorPublicIndex(whatsapp, nombreCompleto, estaca) {
++  setDoc(doc(db, 'personas_publico', whatsapp), { nombreCompleto, estaca }).catch(() => {});
+ }
+ 
+ const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
+@@ -166,7 +162,7 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
+ }
+ 
+ export function registerParticipant(form, activityId) {
+-  mirrorPublicIndex(`${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
++  mirrorPublicIndex(form.whatsapp, `${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
+   return registerForActivity(
+     activityId,
+     form.whatsapp,
+@@ -184,7 +180,7 @@ export function registerParticipant(form, activityId) {
+ }
+ 
+ export function registerManual(m, activityId) {
+-  mirrorPublicIndex(`${m.nombre.trim()} ${m.apellidos.trim()}`, m.estaca);
++  mirrorPublicIndex(m.whatsapp, `${m.nombre.trim()} ${m.apellidos.trim()}`, m.estaca);
+   return registerForActivity(
+     activityId,
+     m.whatsapp,
+@@ -194,6 +190,7 @@ export function registerManual(m, activityId) {
+ }
+ 
+ export function updatePersona(whatsapp, data) {
++  mirrorPublicIndex(whatsapp, `${data.nombre.trim()} ${data.apellidos.trim()}`, data.estaca);
+   return updateDoc(doc(db, 'personas', whatsapp), {
+     nombre: data.nombre.trim(),
+     apellidos: data.apellidos.trim(),
