@@ -1,0 +1,88 @@
+diff --git a/package-lock.json b/package-lock.json
+index 64a165a..2d9e517 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,8 @@
+       "name": "centro-jas-la-velada",
+       "version": "1.0.0",
+       "dependencies": {
++        "@fontsource/lato": "^5.3.0",
++        "@fontsource/nunito": "^5.3.0",
+         "firebase": "^11.0.2",
+         "qrcode": "^1.5.4",
+         "react": "^18.3.1",
+@@ -1308,6 +1310,24 @@
+       "integrity": "sha512-2xCRM9q9FlzGZCdgDMJwc0gyUkWFtkosy7Xxr6sFgQwn+wMNIWd7xIvYNauU1r64B5L5rsGKy/n9TKJ0aAFeqQ==",
+       "license": "Apache-2.0"
+     },
++    "node_modules/@fontsource/lato": {
++      "version": "5.3.0",
++      "resolved": "https://registry.npmjs.org/@fontsource/lato/-/lato-5.3.0.tgz",
++      "integrity": "sha512-0WhF/4rhrw+ErIyneKvhHn2YAl+xf8GDtllgOgOzDmeaSlLQtjpChXaQOpWhG2BchQW0WJy2zLV12Hdg0ndOMw==",
++      "license": "OFL-1.1",
++      "funding": {
++        "url": "https://github.com/sponsors/ayuhito"
++      }
++    },
++    "node_modules/@fontsource/nunito": {
++      "version": "5.3.0",
++      "resolved": "https://registry.npmjs.org/@fontsource/nunito/-/nunito-5.3.0.tgz",
++      "integrity": "sha512-vw9TaTQJ/zpEpKrsODuPmOvaVjXgdda6B+xXA4YqjrdeJ62MLgVoDerdRXFQHyBnSCt2yQ2nHKCHPP/Pv7Xq4Q==",
++      "license": "OFL-1.1",
++      "funding": {
++        "url": "https://github.com/sponsors/ayuhito"
++      }
++    },
+     "node_modules/@google-cloud/firestore": {
+       "version": "7.11.6",
+       "resolved": "https://registry.npmjs.org/@google-cloud/firestore/-/firestore-7.11.6.tgz",
+diff --git a/package.json b/package.json
+index bcb3f1e..3bf44a2 100644
+--- a/package.json
++++ b/package.json
+@@ -13,6 +13,8 @@
+     "dev:emulator": "VITE_USE_FIREBASE_EMULATOR=true vite"
+   },
+   "dependencies": {
++    "@fontsource/lato": "^5.3.0",
++    "@fontsource/nunito": "^5.3.0",
+     "firebase": "^11.0.2",
+     "qrcode": "^1.5.4",
+     "react": "^18.3.1",
+diff --git a/src/components/Admin/ActivityQRModal.jsx b/src/components/Admin/ActivityQRModal.jsx
+index 2785ead..13b6be9 100644
+--- a/src/components/Admin/ActivityQRModal.jsx
++++ b/src/components/Admin/ActivityQRModal.jsx
+@@ -1,6 +1,9 @@
+ import { useEffect, useRef, useState } from 'react';
+ import Modal, { useModalClose } from '../ui/Modal.jsx';
+ import logoUrl from '../../assets/logo.png';
++import nunito800 from '@fontsource/nunito/files/nunito-latin-800-normal.woff2?url';
++import nunito900 from '@fontsource/nunito/files/nunito-latin-900-normal.woff2?url';
++import lato400 from '@fontsource/lato/files/lato-latin-400-normal.woff2?url';
+ import './ActivityQRModal.css';
+ 
+ function registrationUrl(activityId) {
+@@ -20,11 +23,21 @@ function registrationUrl(activityId) {
+  * de flex con alturas intrínsecas — así el total SIEMPRE suma exactamente
+  * 297mm sin importar cuánto midan el header o el footer, eliminando el
+  * riesgo de desborde a una segunda página en blanco.
++ *
++ * Las fuentes se empaquetan con la app (@fontsource) en vez de pedirlas a
++ * Google Fonts en el momento — en datos móviles, en medio de un evento,
++ * esa descarga puede tardar o fallar; si eso pasa, el navegador calcula el
++ * layout con la fuente de respaldo del sistema (más ancha/alta) y se vuelve
++ * a desbordar a una segunda página, el mismo bug original. Empaquetada, la
++ * fuente ya está en el dispositivo desde que se cargó la app — cero espera,
++ * cero dependencia de la red en el momento de imprimir.
+  */
+ function buildPrintHTML(activity, qrDataUrl, formUrl) {
+   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR — ${activity.nombre}</title>
+-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
+   <style>
++    @font-face{ font-family:'Nunito'; font-weight:800; font-display:block; src:url('${nunito800}') format('woff2'); }
++    @font-face{ font-family:'Nunito'; font-weight:900; font-display:block; src:url('${nunito900}') format('woff2'); }
++    @font-face{ font-family:'Lato'; font-weight:400; font-display:block; src:url('${lato400}') format('woff2'); }
+     *{box-sizing:border-box;margin:0;padding:0;}
+     @page{size:A4;margin:0;}
+     html,body{width:210mm;height:297mm;overflow:hidden;} /* overflow:hidden = red de seguridad: si algo se pasa por milímetros, se recorta en vez de crear una página 2 en blanco */

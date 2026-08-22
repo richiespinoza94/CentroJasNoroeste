@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Modal, { useModalClose } from '../ui/Modal.jsx';
 import logoUrl from '../../assets/logo.png';
+import nunito800 from '@fontsource/nunito/files/nunito-latin-800-normal.woff2?url';
+import nunito900 from '@fontsource/nunito/files/nunito-latin-900-normal.woff2?url';
+import lato400 from '@fontsource/lato/files/lato-latin-400-normal.woff2?url';
 import './ActivityQRModal.css';
 
 function registrationUrl(activityId) {
@@ -20,11 +23,21 @@ function registrationUrl(activityId) {
  * de flex con alturas intrínsecas — así el total SIEMPRE suma exactamente
  * 297mm sin importar cuánto midan el header o el footer, eliminando el
  * riesgo de desborde a una segunda página en blanco.
+ *
+ * Las fuentes se empaquetan con la app (@fontsource) en vez de pedirlas a
+ * Google Fonts en el momento — en datos móviles, en medio de un evento,
+ * esa descarga puede tardar o fallar; si eso pasa, el navegador calcula el
+ * layout con la fuente de respaldo del sistema (más ancha/alta) y se vuelve
+ * a desbordar a una segunda página, el mismo bug original. Empaquetada, la
+ * fuente ya está en el dispositivo desde que se cargó la app — cero espera,
+ * cero dependencia de la red en el momento de imprimir.
  */
 function buildPrintHTML(activity, qrDataUrl, formUrl) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR — ${activity.nombre}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    @font-face{ font-family:'Nunito'; font-weight:800; font-display:block; src:url('${nunito800}') format('woff2'); }
+    @font-face{ font-family:'Nunito'; font-weight:900; font-display:block; src:url('${nunito900}') format('woff2'); }
+    @font-face{ font-family:'Lato'; font-weight:400; font-display:block; src:url('${lato400}') format('woff2'); }
     *{box-sizing:border-box;margin:0;padding:0;}
     @page{size:A4;margin:0;}
     html,body{width:210mm;height:297mm;overflow:hidden;} /* overflow:hidden = red de seguridad: si algo se pasa por milímetros, se recorta en vez de crear una página 2 en blanco */
