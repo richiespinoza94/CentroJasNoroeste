@@ -44,3 +44,32 @@
   gap: 14px;
   margin-top: var(--space-4);
 }
+
+.reception__activity-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--navy-800);
+  color: var(--white);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+}
+.reception__activity-name {
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reception__qr-btn {
+  flex-shrink: 0;
+  background: var(--gold-500);
+  color: var(--navy-800);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 7px;
+  min-height: var(--touch-min);
+}

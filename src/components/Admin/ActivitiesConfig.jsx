@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
 import { createActivity, updateActivity, setActiveActivity } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
-import ActivityQRModal from './ActivityQRModal.jsx';
+import ActivityQRModal from '../shared/ActivityQRModal.jsx';
 import './ActivitiesConfig.css';
 
 const EMPTY = { nombre: '', fecha: '', lugar: '', anfitrion: 'Centro JAS Noroeste' };
