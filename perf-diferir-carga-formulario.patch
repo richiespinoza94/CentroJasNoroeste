@@ -1,0 +1,32 @@
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index c7cc506..cd3c3f2 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -40,11 +40,26 @@ export default function RegistrationForm() {
+ 
+   // Índice público mínimo (nombre + estaca, ver collections.js) para avisar
+   // "ya vimos a alguien parecido" — nunca autocompleta, nunca bloquea.
++  //
++  // Se pide recién cuando la persona ya escribió suficiente nombre+apellidos
++  // como para que la comparación tenga sentido (mismo umbral que usa
++  // possibleMatch más abajo) — no apenas se monta el formulario. En el
++  // arranque en frío, esa lectura completa de la colección competía por
++  // ancho de banda con la fuente/el logo/el bundle de JS para una función
++  // que la mayoría de visitas nunca llega a usar (alguien que abandona
++  // antes de escribir su nombre, o que solo escanea para ver de qué se
++  // trata). Diferirlo no cambia el número de lecturas para quien sí llena
++  // el formulario, pero saca esa lectura del camino crítico de "que el
++  // formulario se vea rápido".
+   const [publicIndex, setPublicIndex] = useState([]);
++  const [indexRequested, setIndexRequested] = useState(false);
+   const [matchDismissed, setMatchDismissed] = useState(false);
++  const nombreCompletoLen = normalize(`${form.nombre} ${form.apellidos}`).length;
+   useEffect(() => {
++    if (indexRequested || nombreCompletoLen < 6) return;
++    setIndexRequested(true);
+     subscribePublicIndex().then(setPublicIndex);
+-  }, []);
++  }, [indexRequested, nombreCompletoLen]);
+ 
+   const errors = useMemo(() => validateRegistration(form, []), [form]);
+   const showErr = (field) => ((attempted || touched[field]) ? errors[field] : undefined);
