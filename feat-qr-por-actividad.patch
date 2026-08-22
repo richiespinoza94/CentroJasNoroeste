@@ -1,0 +1,800 @@
+diff --git a/package-lock.json b/package-lock.json
+index bcd2e6c..64a165a 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,6 +9,7 @@
+       "version": "1.0.0",
+       "dependencies": {
+         "firebase": "^11.0.2",
++        "qrcode": "^1.5.4",
+         "react": "^18.3.1",
+         "react-dom": "^18.3.1",
+         "xlsx": "^0.18.5"
+@@ -2334,6 +2335,15 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/camelcase": {
++      "version": "5.3.1",
++      "resolved": "https://registry.npmjs.org/camelcase/-/camelcase-5.3.1.tgz",
++      "integrity": "sha512-L28STB170nwWS63UjtlEOE3dldQApaJXZkOI1uMFfzf3rRuPegHaHesyee+YxQ+W6SvRDQV6UrdOdRiR153wJg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/caniuse-lite": {
+       "version": "1.0.30001809",
+       "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001809.tgz",
+@@ -2470,6 +2480,15 @@
+         }
+       }
+     },
++    "node_modules/decamelize": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/decamelize/-/decamelize-1.2.0.tgz",
++      "integrity": "sha512-z2S+W9X73hAUUki+N+9Za2lBlun89zigOyGrsax+KUQ6wKW4ZoWpEYBkGhQjwAjjDCkWxhY0VKEhk8wzY7F5cA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/delayed-stream": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+@@ -2481,6 +2500,12 @@
+         "node": ">=0.4.0"
+       }
+     },
++    "node_modules/dijkstrajs": {
++      "version": "1.0.3",
++      "resolved": "https://registry.npmjs.org/dijkstrajs/-/dijkstrajs-1.0.3.tgz",
++      "integrity": "sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==",
++      "license": "MIT"
++    },
+     "node_modules/dunder-proto": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+@@ -2760,6 +2785,19 @@
+         "node": "^12.20 || >= 14.13"
+       }
+     },
++    "node_modules/find-up": {
++      "version": "4.1.0",
++      "resolved": "https://registry.npmjs.org/find-up/-/find-up-4.1.0.tgz",
++      "integrity": "sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==",
++      "license": "MIT",
++      "dependencies": {
++        "locate-path": "^5.0.0",
++        "path-exists": "^4.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/firebase": {
+       "version": "11.10.0",
+       "resolved": "https://registry.npmjs.org/firebase/-/firebase-11.10.0.tgz",
+@@ -3541,6 +3579,18 @@
+       "integrity": "sha512-FWWMIEOxz3GwUI4Ts/IvgVy6LPvoMPgjMdQ185nN6psJyBJ4yOpzqm695/h5umdLJg2vW3GR5iG11MAkR2AzJA==",
+       "dev": true
+     },
++    "node_modules/locate-path": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/locate-path/-/locate-path-5.0.0.tgz",
++      "integrity": "sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==",
++      "license": "MIT",
++      "dependencies": {
++        "p-locate": "^4.1.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/lodash.camelcase": {
+       "version": "4.3.0",
+       "resolved": "https://registry.npmjs.org/lodash.camelcase/-/lodash.camelcase-4.3.0.tgz",
+@@ -3830,6 +3880,51 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/p-locate": {
++      "version": "4.1.0",
++      "resolved": "https://registry.npmjs.org/p-locate/-/p-locate-4.1.0.tgz",
++      "integrity": "sha512-R79ZZ/0wAxKGu3oYMlz8jy/kbhsNrS7SKZ7PxEHBgJ5+F2mtFW2fK2cOtBh1cHYkQsbzFV7I+EoRKe6Yt0oK7A==",
++      "license": "MIT",
++      "dependencies": {
++        "p-limit": "^2.2.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/p-locate/node_modules/p-limit": {
++      "version": "2.3.0",
++      "resolved": "https://registry.npmjs.org/p-limit/-/p-limit-2.3.0.tgz",
++      "integrity": "sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==",
++      "license": "MIT",
++      "dependencies": {
++        "p-try": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=6"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
++    "node_modules/p-try": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/p-try/-/p-try-2.2.0.tgz",
++      "integrity": "sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
++    "node_modules/path-exists": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/path-exists/-/path-exists-4.0.0.tgz",
++      "integrity": "sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/path-expression-matcher": {
+       "version": "1.6.2",
+       "resolved": "https://registry.npmjs.org/path-expression-matcher/-/path-expression-matcher-1.6.2.tgz",
+@@ -3854,6 +3949,15 @@
+       "dev": true,
+       "license": "ISC"
+     },
++    "node_modules/pngjs": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/pngjs/-/pngjs-5.0.0.tgz",
++      "integrity": "sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10.13.0"
++      }
++    },
+     "node_modules/postcss": {
+       "version": "8.5.26",
+       "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.26.tgz",
+@@ -3920,6 +4024,89 @@
+         "node": ">=12.0.0"
+       }
+     },
++    "node_modules/qrcode": {
++      "version": "1.5.4",
++      "resolved": "https://registry.npmjs.org/qrcode/-/qrcode-1.5.4.tgz",
++      "integrity": "sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==",
++      "license": "MIT",
++      "dependencies": {
++        "dijkstrajs": "^1.0.1",
++        "pngjs": "^5.0.0",
++        "yargs": "^15.3.1"
++      },
++      "bin": {
++        "qrcode": "bin/qrcode"
++      },
++      "engines": {
++        "node": ">=10.13.0"
++      }
++    },
++    "node_modules/qrcode/node_modules/cliui": {
++      "version": "6.0.0",
++      "resolved": "https://registry.npmjs.org/cliui/-/cliui-6.0.0.tgz",
++      "integrity": "sha512-t6wbgtoCXvAzst7QgXxJYqPt0usEfbgQdftEPbLL/cvv6HPE5VgvqCuAIDR0NgU52ds6rFwqrgakNLrHEjCbrQ==",
++      "license": "ISC",
++      "dependencies": {
++        "string-width": "^4.2.0",
++        "strip-ansi": "^6.0.0",
++        "wrap-ansi": "^6.2.0"
++      }
++    },
++    "node_modules/qrcode/node_modules/wrap-ansi": {
++      "version": "6.2.0",
++      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-6.2.0.tgz",
++      "integrity": "sha512-r6lPcBGxZXlIcymEu7InxDMhdW0KDxpLgoFLcguasxCaJ/SOIZwINatK9KY/tf+ZrlywOKU0UDj3ATXUBfxJXA==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-styles": "^4.0.0",
++        "string-width": "^4.1.0",
++        "strip-ansi": "^6.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/qrcode/node_modules/y18n": {
++      "version": "4.0.3",
++      "resolved": "https://registry.npmjs.org/y18n/-/y18n-4.0.3.tgz",
++      "integrity": "sha512-JKhqTOwSrqNA1NY5lSztJ1GrBiUodLMmIZuLiDaMRJ+itFd+ABVE8XBjOvIWL+rSqNDC74LCSFmlb/U4UZ4hJQ==",
++      "license": "ISC"
++    },
++    "node_modules/qrcode/node_modules/yargs": {
++      "version": "15.4.1",
++      "resolved": "https://registry.npmjs.org/yargs/-/yargs-15.4.1.tgz",
++      "integrity": "sha512-aePbxDmcYW++PaqBsJ+HYUFwCdv4LVvdnhBy78E57PIor8/OVvhMrADFFEDh8DHDFRv/O9i3lPhsENjO7QX0+A==",
++      "license": "MIT",
++      "dependencies": {
++        "cliui": "^6.0.0",
++        "decamelize": "^1.2.0",
++        "find-up": "^4.1.0",
++        "get-caller-file": "^2.0.1",
++        "require-directory": "^2.1.1",
++        "require-main-filename": "^2.0.0",
++        "set-blocking": "^2.0.0",
++        "string-width": "^4.2.0",
++        "which-module": "^2.0.0",
++        "y18n": "^4.0.0",
++        "yargs-parser": "^18.1.2"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/qrcode/node_modules/yargs-parser": {
++      "version": "18.1.3",
++      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-18.1.3.tgz",
++      "integrity": "sha512-o50j0JeToy/4K6OZcaQmW6lyXXKhq7csREXcDwk2omFPJEwUNOVtJKvmDr9EI1fAJZUyZcRF7kxGBWmRXudrCQ==",
++      "license": "ISC",
++      "dependencies": {
++        "camelcase": "^5.0.0",
++        "decamelize": "^1.2.0"
++      },
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/react": {
+       "version": "18.3.1",
+       "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+@@ -3980,6 +4167,12 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/require-main-filename": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/require-main-filename/-/require-main-filename-2.0.0.tgz",
++      "integrity": "sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==",
++      "license": "ISC"
++    },
+     "node_modules/retry": {
+       "version": "0.13.1",
+       "resolved": "https://registry.npmjs.org/retry/-/retry-0.13.1.tgz",
+@@ -4092,6 +4285,12 @@
+         "semver": "bin/semver.js"
+       }
+     },
++    "node_modules/set-blocking": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/set-blocking/-/set-blocking-2.0.0.tgz",
++      "integrity": "sha512-KiKBS8AnWGEyLzofFfmvKwpdPzqiy16LvQfK3yv/fVH7Bj13/wl3JSR1J+rfgRE9q7xUJK4qvgS8raSOeLUehw==",
++      "license": "ISC"
++    },
+     "node_modules/source-map-js": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+@@ -4436,6 +4635,12 @@
+         "webidl-conversions": "^3.0.0"
+       }
+     },
++    "node_modules/which-module": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/which-module/-/which-module-2.0.1.tgz",
++      "integrity": "sha512-iBdZ57RDvnOR9AGBhML2vFZf7h8vmBjhoaZqODJBFWHVtKkDmKuHai3cx5PgVMrX5YDNp27AofYbAwctSS+vhQ==",
++      "license": "ISC"
++    },
+     "node_modules/wmf": {
+       "version": "1.0.2",
+       "resolved": "https://registry.npmjs.org/wmf/-/wmf-1.0.2.tgz",
+diff --git a/package.json b/package.json
+index 0cfcc75..bcb3f1e 100644
+--- a/package.json
++++ b/package.json
+@@ -14,6 +14,7 @@
+   },
+   "dependencies": {
+     "firebase": "^11.0.2",
++    "qrcode": "^1.5.4",
+     "react": "^18.3.1",
+     "react-dom": "^18.3.1",
+     "xlsx": "^0.18.5"
+diff --git a/src/components/Admin/ActivitiesConfig.jsx b/src/components/Admin/ActivitiesConfig.jsx
+index 23f2d06..a34b581 100644
+--- a/src/components/Admin/ActivitiesConfig.jsx
++++ b/src/components/Admin/ActivitiesConfig.jsx
+@@ -1,7 +1,8 @@
+-import { useState } from 'react';
++import { useRef, useState } from 'react';
+ import { useToast } from '../../hooks/useToast.jsx';
+ import { createActivity, updateActivity, setActiveActivity } from '../../firebase/collections.js';
+ import Field from '../ui/Field.jsx';
++import ActivityQRModal from './ActivityQRModal.jsx';
+ import './ActivitiesConfig.css';
+ 
+ const EMPTY = { nombre: '', fecha: '', lugar: '', anfitrion: 'Centro JAS Noroeste' };
+@@ -11,6 +12,8 @@ export default function ActivitiesConfig({ activities }) {
+   const [form, setForm] = useState(EMPTY);
+   const [editingId, setEditingId] = useState(null);
+   const [busy, setBusy] = useState(false);
++  const [qrActivity, setQrActivity] = useState(null);
++  const qrTriggerRef = useRef(null);
+ 
+   const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
+ 
+@@ -107,6 +110,17 @@ export default function ActivitiesConfig({ activities }) {
+               <button type="button" className="activities-config__edit press" disabled={busy} onClick={() => startEdit(a)}>
+                 Editar
+               </button>
++              <button
++                type="button"
++                className="activities-config__edit press"
++                disabled={busy}
++                onClick={(e) => {
++                  qrTriggerRef.current = e.currentTarget;
++                  setQrActivity(a);
++                }}
++              >
++                QR
++              </button>
+               {!a.activa && (
+                 <button type="button" className="activities-config__activate press" disabled={busy} onClick={() => handleActivate(a)}>
+                   Activar
+@@ -116,6 +130,8 @@ export default function ActivitiesConfig({ activities }) {
+           </div>
+         ))}
+       </div>
++
++      {qrActivity && <ActivityQRModal activity={qrActivity} triggerRef={qrTriggerRef} onClose={() => setQrActivity(null)} />}
+     </div>
+   );
+ }
+diff --git a/src/components/Admin/ActivityQRModal.css b/src/components/Admin/ActivityQRModal.css
+new file mode 100644
+index 0000000..2234549
+--- /dev/null
++++ b/src/components/Admin/ActivityQRModal.css
+@@ -0,0 +1,109 @@
++.qr-modal {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 4px;
++  text-align: center;
++}
++.qr-modal__title {
++  font-weight: 800;
++  color: var(--navy-800);
++  font-size: 17px;
++}
++.qr-modal__meta {
++  font-size: 12.5px;
++  color: var(--ink-300);
++  margin-bottom: 14px;
++}
++.qr-modal__canvas {
++  width: 220px;
++  height: 220px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  border: 1px solid var(--line-100);
++  border-radius: 12px;
++  padding: 14px;
++  margin-bottom: 16px;
++}
++.qr-modal__canvas img {
++  width: 100%;
++  height: 100%;
++  object-fit: contain;
++}
++.qr-modal__loading {
++  font-size: 12.5px;
++  color: var(--ink-300);
++}
++.qr-modal__actions {
++  display: flex;
++  gap: 8px;
++  width: 100%;
++}
++.qr-modal__btn {
++  flex: 1;
++  min-height: var(--touch-min);
++  border-radius: var(--radius-sm);
++  font-size: 13px;
++  font-weight: 700;
++  background: var(--white);
++  color: var(--navy-800);
++  border: 1.5px solid var(--line-200);
++}
++.qr-modal__btn--primary {
++  background: var(--navy-800);
++  color: var(--white);
++  border-color: var(--navy-800);
++}
++.qr-modal__btn:disabled {
++  opacity: 0.5;
++}
++.qr-modal__close {
++  margin-top: 10px;
++  min-height: var(--touch-min);
++  color: var(--ink-300);
++  font-size: 12.5px;
++  background: none;
++}
++
++/* Pantalla completa — vista dedicada en vez de la Fullscreen API nativa:
++   iOS Safari no soporta requestFullscreen() en elementos arbitrarios, y
++   este flujo tiene que funcionar igual de bien desde un iPhone que se
++   sostiene en alto para que alguien escanee. */
++.qr-fullscreen {
++  position: fixed;
++  inset: 0;
++  z-index: 100;
++  background: var(--white);
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  gap: 20px;
++  padding: 24px;
++}
++.qr-fullscreen__img {
++  width: min(80vw, 420px);
++  height: min(80vw, 420px);
++  object-fit: contain;
++}
++.qr-fullscreen__title {
++  font-weight: 800;
++  color: var(--navy-800);
++  font-size: 18px;
++  text-align: center;
++}
++.qr-fullscreen__close {
++  position: absolute;
++  top: max(16px, env(safe-area-inset-top));
++  right: 16px;
++  width: var(--touch-min);
++  height: var(--touch-min);
++  border-radius: 50%;
++  background: var(--panel-50);
++  color: var(--navy-800);
++  font-size: 16px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++}
+diff --git a/src/components/Admin/ActivityQRModal.jsx b/src/components/Admin/ActivityQRModal.jsx
+new file mode 100644
+index 0000000..7ebc260
+--- /dev/null
++++ b/src/components/Admin/ActivityQRModal.jsx
+@@ -0,0 +1,102 @@
++import { useEffect, useRef, useState } from 'react';
++import Modal from '../ui/Modal.jsx';
++import logoUrl from '../../assets/logo.png';
++import './ActivityQRModal.css';
++
++function registrationUrl(activityId) {
++  return `${window.location.origin}${window.location.pathname}?actividad=${activityId}`;
++}
++
++/**
++ * Página lista para imprimir/guardar como PDF — mismo patrón que ya probó
++ * el checkin.html del Full Day para "imprimir grupos": una ventana nueva
++ * con HTML autocontenido + window.print(). El navegador ya ofrece "Guardar
++ * como PDF" en el diálogo de impresión, así que no hace falta agregar una
++ * librería de PDF solo para esto.
++ */
++function buildPrintHTML(activity, qrDataUrl) {
++  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR — ${activity.nombre}</title>
++  <style>
++    body{font-family:sans-serif;background:#fff;color:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center;}
++    img.logo{width:96px;height:96px;object-fit:contain;margin-bottom:18px;}
++    h1{font-size:24px;color:#1a3a6b;margin-bottom:6px;}
++    .meta{font-size:15px;color:#4a5c7a;margin-bottom:28px;}
++    img.qr{width:320px;height:320px;border:1px solid #e8eef9;border-radius:12px;padding:16px;}
++    .instr{margin-top:22px;font-size:14px;color:#4a5c7a;font-weight:700;}
++    @media print{@page{size:A5;margin:12mm;}}
++  </style></head><body>
++  <img class="logo" src="${logoUrl}" alt="Centro JAS Noroeste"/>
++  <h1>${activity.nombre}</h1>
++  <div class="meta">${activity.fecha}${activity.lugar ? ` · ${activity.lugar}` : ''}</div>
++  <img class="qr" src="${qrDataUrl}" alt="Código QR de inscripción"/>
++  <div class="instr">📲 Escanea para inscribirte</div>
++  </body></html>`;
++}
++
++export default function ActivityQRModal({ activity, triggerRef, onClose }) {
++  const [qrDataUrl, setQrDataUrl] = useState(null);
++  const [fullscreen, setFullscreen] = useState(false);
++  const cancelled = useRef(false);
++
++  useEffect(() => {
++    cancelled.current = false;
++    import('qrcode').then((QRCode) =>
++      QRCode.toDataURL(registrationUrl(activity.id), { width: 480, margin: 1 }).then((url) => {
++        if (!cancelled.current) setQrDataUrl(url);
++      })
++    );
++    return () => {
++      cancelled.current = true;
++    };
++  }, [activity.id]);
++
++  function handlePrint() {
++    if (!qrDataUrl) return;
++    const w = window.open('', '_blank', 'width=500,height=650');
++    if (!w) return;
++    w.document.write(buildPrintHTML(activity, qrDataUrl));
++    w.document.close();
++    w.focus();
++    setTimeout(() => w.print(), 400);
++  }
++
++  if (fullscreen && qrDataUrl) {
++    return (
++      <div className="qr-fullscreen" role="dialog" aria-modal="true" aria-label={`QR de ${activity.nombre}`}>
++        <button type="button" className="qr-fullscreen__close press" onClick={() => setFullscreen(false)} aria-label="Cerrar pantalla completa">
++          ✕
++        </button>
++        <img src={qrDataUrl} alt="Código QR de inscripción" className="qr-fullscreen__img" />
++        <div className="qr-fullscreen__title">{activity.nombre}</div>
++      </div>
++    );
++  }
++
++  return (
++    <Modal onClose={onClose} triggerRef={triggerRef} label={`QR de ${activity.nombre}`}>
++      {(requestClose) => (
++        <div className="qr-modal">
++          <div className="qr-modal__title">{activity.nombre}</div>
++          <div className="qr-modal__meta">
++            {activity.fecha}
++            {activity.lugar ? ` · ${activity.lugar}` : ''}
++          </div>
++
++          <div className="qr-modal__canvas">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de inscripción" /> : <div className="qr-modal__loading">Generando…</div>}</div>
++
++          <div className="qr-modal__actions">
++            <button type="button" className="qr-modal__btn qr-modal__btn--primary press" disabled={!qrDataUrl} onClick={() => setFullscreen(true)}>
++              Pantalla completa
++            </button>
++            <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={handlePrint}>
++              Descargar / Imprimir
++            </button>
++          </div>
++          <button type="button" className="qr-modal__close press" onClick={requestClose}>
++            Cerrar
++          </button>
++        </div>
++      )}
++    </Modal>
++  );
++}
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index 385abe7..c7cc506 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -22,7 +22,13 @@ function normalize(s) {
+ 
+ export default function RegistrationForm() {
+   const { state, dispatch } = useStore();
+-  const { activeActivity, activitiesLoading } = useFirestoreData();
++  const { activeActivity, activities, activitiesLoading } = useFirestoreData();
++  // Un QR debe apuntar siempre a LA MISMA actividad, aunque después se
++  // active otra distinta — por eso ?actividad=<id> en la URL manda sobre
++  // "la actividad activa ahora" cuando está presente. Sin el parámetro
++  // (visita directa a la app), se usa la actividad activa como hasta ahora.
++  const activityIdParam = useMemo(() => new URLSearchParams(window.location.search).get('actividad'), []);
++  const targetActivity = (activityIdParam && activities.find((a) => a.id === activityIdParam)) || activeActivity;
+   const { form, touched, attempted } = state;
+   const refs = useRef({});
+   const [submitting, setSubmitting] = useState(false);
+@@ -83,7 +89,7 @@ export default function RegistrationForm() {
+     }
+     setSubmitting(true);
+     try {
+-      await registerParticipant(form, activeActivity.id);
++      await registerParticipant(form, targetActivity.id);
+       const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
+       dispatch({
+         type: 'FORM_SUCCESS',
+@@ -99,7 +105,7 @@ export default function RegistrationForm() {
+       // (ver registerForActivity en collections.js) — así que siempre es
+       // seguro mostrar el mensaje contextualizado con el nombre real de la
+       // actividad, en vez del texto genérico que devuelve el backend.
+-      setServerError(`Ya estás registrado(a) para "${activeActivity.nombre}". No necesitas volver a inscribirte.`);
++      setServerError(`Ya estás registrado(a) para "${targetActivity.nombre}". No necesitas volver a inscribirte.`);
+       touch('whatsapp');
+       refs.current.whatsapp?.focus();
+     } finally {
+@@ -114,10 +120,12 @@ export default function RegistrationForm() {
+   if (activitiesLoading) {
+     return <div className="reg-form__loading">Cargando actividad…</div>;
+   }
+-  if (!activeActivity) {
++  if (!targetActivity) {
+     return (
+       <div className="reg-form__loading">
+-        No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.
++        {activityIdParam
++          ? 'Este enlace ya no corresponde a ninguna actividad disponible.'
++          : 'No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.'}
+       </div>
+     );
+   }
+@@ -128,12 +136,12 @@ export default function RegistrationForm() {
+         <div className="reg-form__logo">
+           <img src={logoUrl} alt="Centro JAS Noroeste" />
+         </div>
+-        <div className="reg-form__title">{activeActivity.nombre}</div>
++        <div className="reg-form__title">{targetActivity.nombre}</div>
+         <div className="reg-form__badge">
+-          {activeActivity.fecha}
+-          {activeActivity.lugar ? ` · ${activeActivity.lugar}` : ''}
++          {targetActivity.fecha}
++          {targetActivity.lugar ? ` · ${targetActivity.lugar}` : ''}
+         </div>
+-        {activeActivity.anfitrion && <div className="reg-form__host">{activeActivity.anfitrion}</div>}
++        {targetActivity.anfitrion && <div className="reg-form__host">{targetActivity.anfitrion}</div>}
+       </div>
+ 
+       <div className="reg-form__progress">
+diff --git a/src/components/ui/Modal.css b/src/components/ui/Modal.css
+new file mode 100644
+index 0000000..46f509a
+--- /dev/null
++++ b/src/components/ui/Modal.css
+@@ -0,0 +1,72 @@
++.ui-modal__backdrop {
++  position: fixed;
++  inset: 0;
++  background: rgba(15, 23, 42, 0.55);
++  backdrop-filter: blur(2px);
++  display: flex;
++  align-items: flex-end;
++  justify-content: center;
++  z-index: 60;
++  padding: 0;
++  animation: ui-modal-backdrop-in var(--motion-base) var(--ease-out);
++}
++.ui-modal__backdrop--closing {
++  animation: ui-modal-backdrop-in var(--motion-base) var(--ease-out) reverse;
++}
++@media (min-width: 640px) {
++  .ui-modal__backdrop {
++    align-items: center;
++    padding: 20px;
++  }
++}
++@keyframes ui-modal-backdrop-in {
++  from {
++    opacity: 0;
++  }
++  to {
++    opacity: 1;
++  }
++}
++
++.ui-modal {
++  background: var(--white);
++  width: 100%;
++  max-width: 420px;
++  max-height: 88vh;
++  overflow-y: auto;
++  border-radius: 16px 16px 0 0;
++  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
++  animation: ui-modal-sheet-in var(--motion-base) var(--ease-out);
++}
++.ui-modal--wide {
++  max-width: 480px;
++}
++.ui-modal--closing {
++  animation: ui-modal-sheet-in var(--motion-base) var(--ease-out) reverse;
++}
++@keyframes ui-modal-sheet-in {
++  from {
++    opacity: 0;
++    transform: translateY(24px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++@media (min-width: 640px) {
++  .ui-modal {
++    border-radius: var(--radius-lg);
++    padding: 22px;
++  }
++  @keyframes ui-modal-sheet-in {
++    from {
++      opacity: 0;
++      transform: translateY(8px) scale(0.97);
++    }
++    to {
++      opacity: 1;
++      transform: translateY(0) scale(1);
++    }
++  }
++}
+diff --git a/src/components/ui/Modal.jsx b/src/components/ui/Modal.jsx
+new file mode 100644
+index 0000000..ea327bc
+--- /dev/null
++++ b/src/components/ui/Modal.jsx
+@@ -0,0 +1,69 @@
++import { useEffect, useRef, useState } from 'react';
++import './Modal.css';
++
++const FOCUSABLE = 'input, select, textarea, button:not([disabled]), a[href]';
++
++/**
++ * Modal de hoja/tarjeta con las interacciones ya validadas en el modal de
++ * edición de Personas: anima entrada/salida (nunca aparece de golpe), atrapa
++ * el foco con Tab, cierra con Escape/click-afuera, bloquea el scroll de
++ * fondo, y devuelve el foco al elemento que lo abrió. Extraído aquí porque
++ * ya es el segundo lugar que lo necesita (Personas y ahora el QR de
++ * Actividades) — dos usos reales, no una abstracción especulativa.
++ */
++export default function Modal({ onClose, triggerRef, label, children, wide = false }) {
++  const [closing, setClosing] = useState(false);
++  const dialogRef = useRef(null);
++
++  function requestClose() {
++    setClosing(true);
++    setTimeout(() => {
++      onClose();
++      triggerRef?.current?.focus();
++    }, 180);
++  }
++
++  useEffect(() => {
++    dialogRef.current?.querySelector(FOCUSABLE)?.focus();
++    document.body.style.overflow = 'hidden';
++
++    function handleKey(e) {
++      if (e.key === 'Escape') {
++        requestClose();
++        return;
++      }
++      if (e.key !== 'Tab') return;
++      const focusables = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
++      if (focusables.length === 0) return;
++      const first = focusables[0];
++      const last = focusables[focusables.length - 1];
++      if (e.shiftKey && document.activeElement === first) {
++        e.preventDefault();
++        last.focus();
++      } else if (!e.shiftKey && document.activeElement === last) {
++        e.preventDefault();
++        first.focus();
++      }
++    }
++    document.addEventListener('keydown', handleKey);
++    return () => {
++      document.removeEventListener('keydown', handleKey);
++      document.body.style.overflow = '';
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
++  return (
++    <div className={`ui-modal__backdrop${closing ? ' ui-modal__backdrop--closing' : ''}`} onClick={(e) => e.target === e.currentTarget && requestClose()}>
++      <div
++        className={`ui-modal${wide ? ' ui-modal--wide' : ''}${closing ? ' ui-modal--closing' : ''}`}
++        role="dialog"
++        aria-modal="true"
++        aria-label={label}
++        ref={dialogRef}
++      >
++        {children(requestClose)}
++      </div>
++    </div>
++  );
++}

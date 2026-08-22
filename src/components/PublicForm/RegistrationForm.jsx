@@ -22,7 +22,13 @@ function normalize(s) {
 
 export default function RegistrationForm() {
   const { state, dispatch } = useStore();
-  const { activeActivity, activitiesLoading } = useFirestoreData();
+  const { activeActivity, activities, activitiesLoading } = useFirestoreData();
+  // Un QR debe apuntar siempre a LA MISMA actividad, aunque después se
+  // active otra distinta — por eso ?actividad=<id> en la URL manda sobre
+  // "la actividad activa ahora" cuando está presente. Sin el parámetro
+  // (visita directa a la app), se usa la actividad activa como hasta ahora.
+  const activityIdParam = useMemo(() => new URLSearchParams(window.location.search).get('actividad'), []);
+  const targetActivity = (activityIdParam && activities.find((a) => a.id === activityIdParam)) || activeActivity;
   const { form, touched, attempted } = state;
   const refs = useRef({});
   const [submitting, setSubmitting] = useState(false);
@@ -83,7 +89,7 @@ export default function RegistrationForm() {
     }
     setSubmitting(true);
     try {
-      await registerParticipant(form, activeActivity.id);
+      await registerParticipant(form, targetActivity.id);
       const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
       dispatch({
         type: 'FORM_SUCCESS',
@@ -99,7 +105,7 @@ export default function RegistrationForm() {
       // (ver registerForActivity en collections.js) — así que siempre es
       // seguro mostrar el mensaje contextualizado con el nombre real de la
       // actividad, en vez del texto genérico que devuelve el backend.
-      setServerError(`Ya estás registrado(a) para "${activeActivity.nombre}". No necesitas volver a inscribirte.`);
+      setServerError(`Ya estás registrado(a) para "${targetActivity.nombre}". No necesitas volver a inscribirte.`);
       touch('whatsapp');
       refs.current.whatsapp?.focus();
     } finally {
@@ -114,10 +120,12 @@ export default function RegistrationForm() {
   if (activitiesLoading) {
     return <div className="reg-form__loading">Cargando actividad…</div>;
   }
-  if (!activeActivity) {
+  if (!targetActivity) {
     return (
       <div className="reg-form__loading">
-        No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.
+        {activityIdParam
+          ? 'Este enlace ya no corresponde a ninguna actividad disponible.'
+          : 'No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.'}
       </div>
     );
   }
@@ -128,12 +136,12 @@ export default function RegistrationForm() {
         <div className="reg-form__logo">
           <img src={logoUrl} alt="Centro JAS Noroeste" />
         </div>
-        <div className="reg-form__title">{activeActivity.nombre}</div>
+        <div className="reg-form__title">{targetActivity.nombre}</div>
         <div className="reg-form__badge">
-          {activeActivity.fecha}
-          {activeActivity.lugar ? ` · ${activeActivity.lugar}` : ''}
+          {targetActivity.fecha}
+          {targetActivity.lugar ? ` · ${targetActivity.lugar}` : ''}
         </div>
-        {activeActivity.anfitrion && <div className="reg-form__host">{activeActivity.anfitrion}</div>}
+        {targetActivity.anfitrion && <div className="reg-form__host">{targetActivity.anfitrion}</div>}
       </div>
 
       <div className="reg-form__progress">

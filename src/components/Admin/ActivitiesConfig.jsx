@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
 import { createActivity, updateActivity, setActiveActivity } from '../../firebase/collections.js';
 import Field from '../ui/Field.jsx';
+import ActivityQRModal from './ActivityQRModal.jsx';
 import './ActivitiesConfig.css';
 
 const EMPTY = { nombre: '', fecha: '', lugar: '', anfitrion: 'Centro JAS Noroeste' };
@@ -11,6 +12,8 @@ export default function ActivitiesConfig({ activities }) {
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [qrActivity, setQrActivity] = useState(null);
+  const qrTriggerRef = useRef(null);
 
   const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
 
@@ -107,6 +110,17 @@ export default function ActivitiesConfig({ activities }) {
               <button type="button" className="activities-config__edit press" disabled={busy} onClick={() => startEdit(a)}>
                 Editar
               </button>
+              <button
+                type="button"
+                className="activities-config__edit press"
+                disabled={busy}
+                onClick={(e) => {
+                  qrTriggerRef.current = e.currentTarget;
+                  setQrActivity(a);
+                }}
+              >
+                QR
+              </button>
               {!a.activa && (
                 <button type="button" className="activities-config__activate press" disabled={busy} onClick={() => handleActivate(a)}>
                   Activar
@@ -116,6 +130,8 @@ export default function ActivitiesConfig({ activities }) {
           </div>
         ))}
       </div>
+
+      {qrActivity && <ActivityQRModal activity={qrActivity} triggerRef={qrTriggerRef} onClose={() => setQrActivity(null)} />}
     </div>
   );
 }
