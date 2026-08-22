@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
+import { usePagination } from '../../hooks/usePagination.js';
 import { updatePersona, setCategoria } from '../../firebase/collections.js';
 import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
 import { PencilIcon } from '../ui/Icon.jsx';
@@ -184,7 +185,6 @@ function EditPersonaForm({ persona, inscripcion, activeActivity }) {
 export default function PersonasConfig({ personas, participants = [], activeActivity }) {
   const toast = useToast();
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
   const [editing, setEditing] = useState(null);
   const editTriggerRef = useRef(null);
 
@@ -202,9 +202,7 @@ export default function PersonasConfig({ personas, participants = [], activeActi
       .map((x) => x.p);
   }, [personas, query]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages - 1);
-  const pageItems = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+  const { pageItems, page: currentPage, setPage, totalPages } = usePagination(filtered, PAGE_SIZE);
 
   function handleQueryChange(v) {
     setQuery(v);

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchAllInscripciones } from '../../firebase/collections.js';
+import { usePagination } from '../../hooks/usePagination.js';
 import { CATEGORIAS, STATUS_META } from '../../domain/constants.js';
 import StatCards from '../shared/StatCards.jsx';
 import AttendanceTrendChart from './AttendanceTrendChart.jsx';
 import './ActivityHistory.css';
 
 const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
+const PAGE_SIZE = 15;
 
 // AdminScreen desmonta cada pestaña al cambiar ({tab === X && <Comp/>}), así
 // que sin esta caché a nivel de módulo, entrar y salir de Historial repetía
@@ -27,6 +29,7 @@ export default function ActivityHistory({ activities, personas }) {
   const [inscripciones, setInscripciones] = useState(cachedInscripciones); // null solo si nunca se cargó
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
+  const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
 
   useEffect(() => {
     if (cachedInscripciones) return; // ya hay datos en caché — no repetir la lectura
@@ -65,6 +68,22 @@ export default function ActivityHistory({ activities, personas }) {
 
   const selected = sortedActivities.find((a) => a.id === selectedId) || sortedActivities[sortedActivities.length - 1] || null;
   const selectedAttendees = selected ? byActivity.get(selected.id) || [] : [];
+
+  const filteredAttendees = useMemo(
+    () => (categoriaFiltro === 'Todos' ? selectedAttendees : selectedAttendees.filter((p) => p.categoria === categoriaFiltro)),
+    [selectedAttendees, categoriaFiltro]
+  );
+  const { pageItems: attendeesPage, page: attendeesPageIdx, setPage: setAttendeesPage, totalPages: attendeesTotalPages } = usePagination(filteredAttendees, PAGE_SIZE);
+
+  function handleSelectActivity(id) {
+    setSelectedId(id);
+    setCategoriaFiltro('Todos');
+    setAttendeesPage(0);
+  }
+  function handleFilterCategoria(c) {
+    setCategoriaFiltro(c);
+    setAttendeesPage(0);
+  }
 
   const trendData = useMemo(
     () =>
@@ -110,7 +129,7 @@ export default function ActivityHistory({ activities, personas }) {
               role="tab"
               aria-selected={selected?.id === a.id}
               className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
-              onClick={() => setSelectedId(a.id)}
+              onClick={() => handleSelectActivity(a.id)}
             >
               {a.nombre}
             </button>
@@ -137,8 +156,23 @@ export default function ActivityHistory({ activities, personas }) {
             Descargar reporte (Excel)
           </button>
 
+          <div className="activity-history__filters" role="tablist" aria-label="Filtrar por categoría">
+            {['Todos', ...CATEGORIAS].map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="tab"
+                aria-selected={categoriaFiltro === c}
+                className={`activity-history__filter-chip press${categoriaFiltro === c ? ' activity-history__filter-chip--active' : ''}`}
+                onClick={() => handleFilterCategoria(c)}
+              >
+                {c === 'Todos' ? `Todos (${selectedAttendees.length})` : `${CATEGORIA_PLURAL[c]} (${selectedAttendees.filter((p) => p.categoria === c).length})`}
+              </button>
+            ))}
+          </div>
+
           <div className="activity-history__list">
-            {selectedAttendees.map((p) => {
+            {attendeesPage.map((p) => {
               const meta = STATUS_META[p.status] || STATUS_META.pendiente;
               return (
                 <div key={p.id} className="activity-history__row">
@@ -156,8 +190,36 @@ export default function ActivityHistory({ activities, personas }) {
                 </div>
               );
             })}
-            {selectedAttendees.length === 0 && <div className="activity-history__empty">Nadie se registró en esta actividad todavía.</div>}
+            {filteredAttendees.length === 0 && (
+              <div className="activity-history__empty">
+                {selectedAttendees.length === 0 ? 'Nadie se registró en esta actividad todavía.' : 'Nadie en esta categoría.'}
+              </div>
+            )}
           </div>
+
+          {attendeesTotalPages > 1 && (
+            <div className="activity-history__pager">
+              <button
+                type="button"
+                className="activity-history__pager-btn press"
+                disabled={attendeesPageIdx === 0}
+                onClick={() => setAttendeesPage((p) => p - 1)}
+              >
+                ← Anterior
+              </button>
+              <span className="activity-history__pager-label">
+                Página {attendeesPageIdx + 1} de {attendeesTotalPages}
+              </span>
+              <button
+                type="button"
+                className="activity-history__pager-btn press"
+                disabled={attendeesPageIdx >= attendeesTotalPages - 1}
+                onClick={() => setAttendeesPage((p) => p + 1)}
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

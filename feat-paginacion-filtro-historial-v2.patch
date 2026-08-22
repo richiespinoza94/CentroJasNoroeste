@@ -1,0 +1,238 @@
+diff --git a/src/components/Admin/ActivityHistory.css b/src/components/Admin/ActivityHistory.css
+index 0ea545a..b0a4aea 100644
+--- a/src/components/Admin/ActivityHistory.css
++++ b/src/components/Admin/ActivityHistory.css
+@@ -118,3 +118,54 @@
+ .activity-history__refresh:disabled {
+   opacity: 0.5;
+ }
++
++.activity-history__filters {
++  display: flex;
++  gap: 6px;
++  overflow-x: auto;
++  padding-bottom: 2px;
++  -webkit-overflow-scrolling: touch;
++}
++.activity-history__filter-chip {
++  flex-shrink: 0;
++  white-space: nowrap;
++  padding: 7px 12px;
++  border-radius: 999px;
++  border: 1.5px solid var(--line-200);
++  background: var(--white);
++  color: var(--ink-500);
++  font-size: 11.5px;
++  font-weight: 600;
++  min-height: var(--touch-min);
++}
++.activity-history__filter-chip--active {
++  background: var(--gold-500);
++  color: var(--navy-800);
++  border-color: var(--gold-500);
++  font-weight: 700;
++}
++
++.activity-history__pager {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 8px;
++  margin-top: 2px;
++}
++.activity-history__pager-btn {
++  background: none;
++  border: 1px solid var(--navy-100);
++  color: var(--navy-800);
++  font-size: 12px;
++  font-weight: 700;
++  padding: 8px 12px;
++  border-radius: 7px;
++  min-height: var(--touch-min);
++}
++.activity-history__pager-btn:disabled {
++  opacity: 0.4;
++}
++.activity-history__pager-label {
++  font-size: 12px;
++  color: var(--ink-300);
++}
+diff --git a/src/components/Admin/ActivityHistory.jsx b/src/components/Admin/ActivityHistory.jsx
+index b53ba5b..1ab608a 100644
+--- a/src/components/Admin/ActivityHistory.jsx
++++ b/src/components/Admin/ActivityHistory.jsx
+@@ -1,11 +1,13 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { fetchAllInscripciones } from '../../firebase/collections.js';
++import { usePagination } from '../../hooks/usePagination.js';
+ import { CATEGORIAS, STATUS_META } from '../../domain/constants.js';
+ import StatCards from '../shared/StatCards.jsx';
+ import AttendanceTrendChart from './AttendanceTrendChart.jsx';
+ import './ActivityHistory.css';
+ 
+ const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
++const PAGE_SIZE = 15;
+ 
+ // AdminScreen desmonta cada pestaña al cambiar ({tab === X && <Comp/>}), así
+ // que sin esta caché a nivel de módulo, entrar y salir de Historial repetía
+@@ -27,6 +29,7 @@ export default function ActivityHistory({ activities, personas }) {
+   const [inscripciones, setInscripciones] = useState(cachedInscripciones); // null solo si nunca se cargó
+   const [refreshing, setRefreshing] = useState(false);
+   const [selectedId, setSelectedId] = useState(null);
++  const [categoriaFiltro, setCategoriaFiltro] = useState('Todos');
+ 
+   useEffect(() => {
+     if (cachedInscripciones) return; // ya hay datos en caché — no repetir la lectura
+@@ -66,6 +69,22 @@ export default function ActivityHistory({ activities, personas }) {
+   const selected = sortedActivities.find((a) => a.id === selectedId) || sortedActivities[sortedActivities.length - 1] || null;
+   const selectedAttendees = selected ? byActivity.get(selected.id) || [] : [];
+ 
++  const filteredAttendees = useMemo(
++    () => (categoriaFiltro === 'Todos' ? selectedAttendees : selectedAttendees.filter((p) => p.categoria === categoriaFiltro)),
++    [selectedAttendees, categoriaFiltro]
++  );
++  const { pageItems: attendeesPage, page: attendeesPageIdx, setPage: setAttendeesPage, totalPages: attendeesTotalPages } = usePagination(filteredAttendees, PAGE_SIZE);
++
++  function handleSelectActivity(id) {
++    setSelectedId(id);
++    setCategoriaFiltro('Todos');
++    setAttendeesPage(0);
++  }
++  function handleFilterCategoria(c) {
++    setCategoriaFiltro(c);
++    setAttendeesPage(0);
++  }
++
+   const trendData = useMemo(
+     () =>
+       sortedActivities.map((a) => {
+@@ -110,7 +129,7 @@ export default function ActivityHistory({ activities, personas }) {
+               role="tab"
+               aria-selected={selected?.id === a.id}
+               className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
+-              onClick={() => setSelectedId(a.id)}
++              onClick={() => handleSelectActivity(a.id)}
+             >
+               {a.nombre}
+             </button>
+@@ -137,8 +156,23 @@ export default function ActivityHistory({ activities, personas }) {
+             Descargar reporte (Excel)
+           </button>
+ 
++          <div className="activity-history__filters" role="tablist" aria-label="Filtrar por categoría">
++            {['Todos', ...CATEGORIAS].map((c) => (
++              <button
++                key={c}
++                type="button"
++                role="tab"
++                aria-selected={categoriaFiltro === c}
++                className={`activity-history__filter-chip press${categoriaFiltro === c ? ' activity-history__filter-chip--active' : ''}`}
++                onClick={() => handleFilterCategoria(c)}
++              >
++                {c === 'Todos' ? `Todos (${selectedAttendees.length})` : `${CATEGORIA_PLURAL[c]} (${selectedAttendees.filter((p) => p.categoria === c).length})`}
++              </button>
++            ))}
++          </div>
++
+           <div className="activity-history__list">
+-            {selectedAttendees.map((p) => {
++            {attendeesPage.map((p) => {
+               const meta = STATUS_META[p.status] || STATUS_META.pendiente;
+               return (
+                 <div key={p.id} className="activity-history__row">
+@@ -156,8 +190,36 @@ export default function ActivityHistory({ activities, personas }) {
+                 </div>
+               );
+             })}
+-            {selectedAttendees.length === 0 && <div className="activity-history__empty">Nadie se registró en esta actividad todavía.</div>}
++            {filteredAttendees.length === 0 && (
++              <div className="activity-history__empty">
++                {selectedAttendees.length === 0 ? 'Nadie se registró en esta actividad todavía.' : 'Nadie en esta categoría.'}
++              </div>
++            )}
+           </div>
++
++          {attendeesTotalPages > 1 && (
++            <div className="activity-history__pager">
++              <button
++                type="button"
++                className="activity-history__pager-btn press"
++                disabled={attendeesPageIdx === 0}
++                onClick={() => setAttendeesPage((p) => p - 1)}
++              >
++                ← Anterior
++              </button>
++              <span className="activity-history__pager-label">
++                Página {attendeesPageIdx + 1} de {attendeesTotalPages}
++              </span>
++              <button
++                type="button"
++                className="activity-history__pager-btn press"
++                disabled={attendeesPageIdx >= attendeesTotalPages - 1}
++                onClick={() => setAttendeesPage((p) => p + 1)}
++              >
++                Siguiente →
++              </button>
++            </div>
++          )}
+         </>
+       )}
+     </div>
+diff --git a/src/components/Admin/PersonasConfig.jsx b/src/components/Admin/PersonasConfig.jsx
+index 7d999c5..c647965 100644
+--- a/src/components/Admin/PersonasConfig.jsx
++++ b/src/components/Admin/PersonasConfig.jsx
+@@ -1,5 +1,6 @@
+ import { useMemo, useRef, useState } from 'react';
+ import { useToast } from '../../hooks/useToast.jsx';
++import { usePagination } from '../../hooks/usePagination.js';
+ import { updatePersona, setCategoria } from '../../firebase/collections.js';
+ import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
+ import { PencilIcon } from '../ui/Icon.jsx';
+@@ -184,7 +185,6 @@ function EditPersonaForm({ persona, inscripcion, activeActivity }) {
+ export default function PersonasConfig({ personas, participants = [], activeActivity }) {
+   const toast = useToast();
+   const [query, setQuery] = useState('');
+-  const [page, setPage] = useState(0);
+   const [editing, setEditing] = useState(null);
+   const editTriggerRef = useRef(null);
+ 
+@@ -202,9 +202,7 @@ export default function PersonasConfig({ personas, participants = [], activeActi
+       .map((x) => x.p);
+   }, [personas, query]);
+ 
+-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+-  const currentPage = Math.min(page, totalPages - 1);
+-  const pageItems = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
++  const { pageItems, page: currentPage, setPage, totalPages } = usePagination(filtered, PAGE_SIZE);
+ 
+   function handleQueryChange(v) {
+     setQuery(v);
+diff --git a/src/hooks/usePagination.js b/src/hooks/usePagination.js
+new file mode 100644
+index 0000000..bb766ab
+--- /dev/null
++++ b/src/hooks/usePagination.js
+@@ -0,0 +1,22 @@
++import { useMemo, useState } from 'react';
++
++/**
++ * Paginado simple del lado del cliente — 15 por página es el tamaño que ya
++ * se validó en Admin → Personas. Extraído aquí porque Historial es el
++ * segundo lugar que necesita exactamente lo mismo (misma razón por la que
++ * se extrajo ui/Modal.jsx: dos usos reales, no una abstracción por si
++ * acaso).
++ *
++ * No resetea la página sola cuando `items` cambia — igual que ya hacía
++ * Personas, es responsabilidad de quien filtra/cambia de selección llamar
++ * `setPage(0)` en ese momento (ver ejemplos en PersonasConfig y
++ * ActivityHistory). Mantenerlo así de simple evita una re-renderización
++ * extra "mágica" por cada cambio de props.
++ */
++export function usePagination(items, pageSize = 15) {
++  const [page, setPage] = useState(0);
++  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
++  const currentPage = Math.min(page, totalPages - 1);
++  const pageItems = useMemo(() => items.slice(currentPage * pageSize, currentPage * pageSize + pageSize), [items, currentPage, pageSize]);
++  return { pageItems, page: currentPage, setPage, totalPages };
++}
