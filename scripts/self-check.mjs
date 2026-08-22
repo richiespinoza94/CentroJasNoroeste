@@ -87,4 +87,38 @@ check('validateManual requires whatsapp + estaca/barrio, no duplicates', () => {
   );
 });
 
+check('keyboard-mash names are rejected (noise pattern)', () => {
+  assert.ok(validateRegistration({ ...validForm, nombre: 'asdfgh' }, []).nombre);
+  assert.ok(validateRegistration({ ...validForm, nombre: 'Aaaaaa' }, []).nombre);
+});
+
+check('names with too few vowels for their length are rejected', () => {
+  assert.ok(validateRegistration({ ...validForm, nombre: 'Bcdfgh' }, []).nombre);
+});
+
+check('names with alternating case are rejected', () => {
+  assert.ok(validateRegistration({ ...validForm, apellidos: 'AbCdEfGhIj' }, []).apellidos);
+});
+
+check('a real hyphenated/accented name still passes', () => {
+  const errs = validateRegistration({ ...validForm, nombre: 'José', apellidos: "D'Angelo Villar" }, []);
+  assert.equal(errs.nombre, undefined);
+  assert.equal(errs.apellidos, undefined);
+});
+
+check('whatsapp with an obviously fake digit pattern is rejected', () => {
+  assert.ok(validateRegistration({ ...validForm, whatsapp: '999999999' }, []).whatsapp, 'all-same-digit should be rejected');
+  assert.ok(validateRegistration({ ...validForm, whatsapp: '910101010' }, []).whatsapp, 'alternating 10 pattern should be rejected');
+  assert.ok(validateRegistration({ ...validForm, whatsapp: '912121212' }, []).whatsapp, 'repeated 2-digit group should be rejected');
+});
+
+check('emails with repeated chars in the local part are rejected', () => {
+  assert.ok(validateRegistration({ ...validForm, correo: 'aaaabbbb@gmail.com' }, []).correo);
+});
+
+check('a real-looking email still passes', () => {
+  const errs = validateRegistration({ ...validForm, correo: 'maria.ramirez94@gmail.com' }, []);
+  assert.equal(errs.correo, undefined);
+});
+
 console.log(`\n${passed} checks passed.`);

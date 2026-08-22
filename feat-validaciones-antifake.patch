@@ -1,0 +1,202 @@
+diff --git a/scripts/self-check.mjs b/scripts/self-check.mjs
+index 24c50e0..c987a46 100644
+--- a/scripts/self-check.mjs
++++ b/scripts/self-check.mjs
+@@ -87,4 +87,38 @@ check('validateManual requires whatsapp + estaca/barrio, no duplicates', () => {
+   );
+ });
+ 
++check('keyboard-mash names are rejected (noise pattern)', () => {
++  assert.ok(validateRegistration({ ...validForm, nombre: 'asdfgh' }, []).nombre);
++  assert.ok(validateRegistration({ ...validForm, nombre: 'Aaaaaa' }, []).nombre);
++});
++
++check('names with too few vowels for their length are rejected', () => {
++  assert.ok(validateRegistration({ ...validForm, nombre: 'Bcdfgh' }, []).nombre);
++});
++
++check('names with alternating case are rejected', () => {
++  assert.ok(validateRegistration({ ...validForm, apellidos: 'AbCdEfGhIj' }, []).apellidos);
++});
++
++check('a real hyphenated/accented name still passes', () => {
++  const errs = validateRegistration({ ...validForm, nombre: 'José', apellidos: "D'Angelo Villar" }, []);
++  assert.equal(errs.nombre, undefined);
++  assert.equal(errs.apellidos, undefined);
++});
++
++check('whatsapp with an obviously fake digit pattern is rejected', () => {
++  assert.ok(validateRegistration({ ...validForm, whatsapp: '999999999' }, []).whatsapp, 'all-same-digit should be rejected');
++  assert.ok(validateRegistration({ ...validForm, whatsapp: '910101010' }, []).whatsapp, 'alternating 10 pattern should be rejected');
++  assert.ok(validateRegistration({ ...validForm, whatsapp: '912121212' }, []).whatsapp, 'repeated 2-digit group should be rejected');
++});
++
++check('emails with repeated chars in the local part are rejected', () => {
++  assert.ok(validateRegistration({ ...validForm, correo: 'aaaabbbb@gmail.com' }, []).correo);
++});
++
++check('a real-looking email still passes', () => {
++  const errs = validateRegistration({ ...validForm, correo: 'maria.ramirez94@gmail.com' }, []);
++  assert.equal(errs.correo, undefined);
++});
++
+ console.log(`\n${passed} checks passed.`);
+diff --git a/src/domain/constants.js b/src/domain/constants.js
+index 2dc1fd4..61573be 100644
+--- a/src/domain/constants.js
++++ b/src/domain/constants.js
+@@ -8,7 +8,25 @@ export const NOMBRE_RE = /^[A-Za-zàáéíóúÁÉÍÓÚñÑüÜ\s'\-.]+$/;
+ export const WHATSAPP_RE = /^9\d{8}$/;
+ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ export const PIN_RE = /^\d{4}$/;
+-export const SUSPICIOUS_EMAIL_WORDS = ['test', 'fake', 'spam', 'asdf', 'temp', 'noreply', 'xxx'];
++
++// Lista ampliada — la de antes (7 palabras) se quedaba corta frente a lo que
++// realmente escribe la gente cuando no quiere dar su correo. Tomada de la
++// misma lógica anti-fake ya probada en producción con el formulario del
++// Full Day (Code.gs), no inventada de cero.
++export const SUSPICIOUS_EMAIL_WORDS = [
++  'notengoemail', 'noemail', 'sinmail', 'notengo', 'tengo',
++  'test', 'testing', 'prueba', 'demo', 'example',
++  'fake', 'falso', 'dummy', 'placeholder', 'noreal',
++  'abc', 'xyz', 'aaa', 'bbb', 'ccc', 'xxx', 'yyy', 'zzz',
++  '111', '222', '333', '000', '999',
++  'asdf', 'qwerty', 'qweasd', 'zxcvbn', 'qazwsx',
++  'admin', 'user', 'pass', 'password', '123', '456',
++  'temporal', 'temp', 'aux', 'basura', 'noreply', 'spam',
++];
++
++// Patrones de celular claramente inventado — mismo criterio que el Full Day:
++// todos el mismo dígito, pares alternados, o un grupo de 2 dígitos repetido.
++export const FAKE_WHATSAPP_PATTERNS = [/^9{9}$/, /^9(\d)\1{7}$/, /^9(01|10){4}9?$/, /^9(\d{2})\1{3}$/];
+ 
+ // One standardized category — usada por el formulario público, el registro
+ // manual, y (antes) las reservas de mesas. Se mantiene un solo vocabulario
+diff --git a/src/domain/validation.js b/src/domain/validation.js
+index 26b8aa0..f1b1f79 100644
+--- a/src/domain/validation.js
++++ b/src/domain/validation.js
+@@ -1,4 +1,4 @@
+-import { NOMBRE_RE, WHATSAPP_RE, EMAIL_RE, SUSPICIOUS_EMAIL_WORDS, PUBLIC_CATEGORIAS } from './constants.js';
++import { NOMBRE_RE, WHATSAPP_RE, EMAIL_RE, SUSPICIOUS_EMAIL_WORDS, FAKE_WHATSAPP_PATTERNS, PUBLIC_CATEGORIAS } from './constants.js';
+ 
+ export function ageFromDate(str) {
+   if (!str) return null;
+@@ -11,6 +11,63 @@ export function ageFromDate(str) {
+   return age;
+ }
+ 
++// Detecta patrones de "ruido" — teclado mal aplastado, o el mismo carácter
++// repetido 4+ veces seguidas. Misma idea que ya se probó en producción en
++// el formulario del Full Day (Code.gs), portada aquí en vez de reinventarla.
++function hasNoisePattern(s) {
++  return /qwerty|asdfgh|zxcvbn|qazwsx/i.test(s) || /(.)\1{3,}/i.test(s);
++}
++
++/**
++ * Valida que un nombre/apellido "se sienta" real, más allá de solo aceptar
++ * letras: detecta alternancia rara de mayúsculas (ej. "aSdFqWeR"), muy pocas
++ * vocales para su longitud, una racha larga de consonantes seguidas, o
++ * ruido de teclado — los mismos criterios que ya se probaron en vivo con el
++ * Full Day, no una heurística nueva sin probar.
++ */
++function nameQualityError(s, { minLen, maxLen, maxConsonantRun }) {
++  if (s.length < minLen) return `Mínimo ${minLen} caracteres.`;
++  if (s.length > maxLen) return `Máximo ${maxLen} caracteres.`;
++  if (!NOMBRE_RE.test(s)) return 'Solo letras (sin números ni símbolos).';
++
++  const especiales = (s.match(/['\-.]/g) || []).length;
++  if (especiales > 3) return 'Demasiados caracteres especiales.';
++  if (/([a-z][A-Z]){3,}/.test(s)) return 'Este texto no parece un nombre real.';
++
++  const sinEspacios = s.replace(/\s/g, '').toLowerCase();
++  if (sinEspacios.length === 0) return `Mínimo ${minLen} caracteres.`;
++
++  const vocales = (sinEspacios.match(/[aeiouáéíóú]/g) || []).length;
++  if (vocales / sinEspacios.length < 0.15) return 'Este texto no parece un nombre real.';
++
++  const consonanteRun = new RegExp(`[bcdfghjklmnpqrstvwxyzñ]{${maxConsonantRun},}`, 'i');
++  if (consonanteRun.test(sinEspacios)) return 'Este texto no parece un nombre real.';
++  if (hasNoisePattern(sinEspacios)) return 'Este texto no parece un nombre real.';
++
++  return null;
++}
++
++/**
++ * Misma idea que nameQualityError, pero para la parte antes del @ de un
++ * correo: alternancia rara de mayúsculas, caracteres repetidos, demasiados
++ * números seguidos, o casi todo números — portado del Full Day.
++ */
++function correoQualityError(correo) {
++  if (!EMAIL_RE.test(correo)) return 'Correo no válido.';
++
++  const local = correo.split('@')[0].toLowerCase();
++  if (SUSPICIOUS_EMAIL_WORDS.some((w) => local.includes(w))) return 'Este correo no parece válido.';
++  if (/(.)\1{3,}/i.test(local)) return 'Este correo tiene demasiados caracteres repetidos.';
++  if (/\d{4,}/.test(local)) return 'Demasiados números seguidos en el correo.';
++
++  const soloNumeros = local.replace(/[^0-9]/g, '').length;
++  if (soloNumeros / local.length > 0.6) return 'Este correo no parece válido.';
++  if (local.length < 3) return 'El correo es muy corto.';
++  if (local.length > 50) return 'El correo es muy largo.';
++
++  return null;
++}
++
+ /**
+  * Validates the public registration form.
+  * @returns {Record<string, string>} field -> error message (empty object = valid)
+@@ -19,14 +76,12 @@ export function validateRegistration(form, participants) {
+   const e = {};
+ 
+   const nombre = form.nombre.trim();
+-  if (nombre.length < 2 || nombre.length > 40 || !NOMBRE_RE.test(nombre)) {
+-    e.nombre = 'Ingresa 2-40 caracteres, solo letras.';
+-  }
++  const errNombre = nameQualityError(nombre, { minLen: 2, maxLen: 40, maxConsonantRun: 6 });
++  if (errNombre) e.nombre = errNombre;
+ 
+   const ap = form.apellidos.trim();
+-  if (ap.length < 2 || ap.length > 50 || !NOMBRE_RE.test(ap)) {
+-    e.apellidos = 'Ingresa 2-50 caracteres, solo letras.';
+-  }
++  const errApellidos = nameQualityError(ap, { minLen: 2, maxLen: 50, maxConsonantRun: 7 });
++  if (errApellidos) e.apellidos = errApellidos;
+ 
+   if (!form.fechaNacimiento) {
+     e.fechaNacimiento = 'Campo obligatorio.';
+@@ -40,6 +95,8 @@ export function validateRegistration(form, participants) {
+ 
+   if (!WHATSAPP_RE.test(form.whatsapp)) {
+     e.whatsapp = 'Debe tener 9 dígitos y empezar con 9.';
++  } else if (FAKE_WHATSAPP_PATTERNS.some((re) => re.test(form.whatsapp))) {
++    e.whatsapp = 'Este número no parece real — revísalo.';
+   } else {
+     const dup = participants.find((p) => p.whatsapp === form.whatsapp);
+     if (dup) e.whatsapp = `Ya existe un registro con este número (${dup.nombre} ${dup.apellidos}).`;
+@@ -53,12 +110,8 @@ export function validateRegistration(form, participants) {
+   if (!form.barrio || form.barrio.trim().length < 2) e.barrio = 'Ingresa tu barrio o rama.';
+ 
+   if (form.correo) {
+-    if (!EMAIL_RE.test(form.correo)) {
+-      e.correo = 'Correo no válido.';
+-    } else {
+-      const local = form.correo.split('@')[0].toLowerCase();
+-      if (SUSPICIOUS_EMAIL_WORDS.some((w) => local.includes(w))) e.correo = 'Este correo parece no válido.';
+-    }
++    const errCorreo = correoQualityError(form.correo);
++    if (errCorreo) e.correo = errCorreo;
+   }
+ 
+   if (!form.privacidad) e.privacidad = 'Debes aceptar la política de privacidad.';
+@@ -66,6 +119,10 @@ export function validateRegistration(form, participants) {
+   return e;
+ }
+ 
++// El registro manual lo hace el staff en recepción, no el público — se
++// mantiene la validación básica (obligatorios + formato) sin las
++// heurísticas anti-fake, porque ahí el riesgo de spam/troleo no existe y
++// esas reglas podrían estorbar con un nombre real pero poco común.
+ export function validateManual(m, participants) {
+   if (!m.nombre.trim() || !m.apellidos.trim()) return 'Nombre y apellidos son obligatorios.';
+   if (!WHATSAPP_RE.test(m.whatsapp)) return 'WhatsApp inválido (9 dígitos, empieza con 9).';

@@ -8,7 +8,25 @@ export const NOMBRE_RE = /^[A-Za-zàáéíóúÁÉÍÓÚñÑüÜ\s'\-.]+$/;
 export const WHATSAPP_RE = /^9\d{8}$/;
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PIN_RE = /^\d{4}$/;
-export const SUSPICIOUS_EMAIL_WORDS = ['test', 'fake', 'spam', 'asdf', 'temp', 'noreply', 'xxx'];
+
+// Lista ampliada — la de antes (7 palabras) se quedaba corta frente a lo que
+// realmente escribe la gente cuando no quiere dar su correo. Tomada de la
+// misma lógica anti-fake ya probada en producción con el formulario del
+// Full Day (Code.gs), no inventada de cero.
+export const SUSPICIOUS_EMAIL_WORDS = [
+  'notengoemail', 'noemail', 'sinmail', 'notengo', 'tengo',
+  'test', 'testing', 'prueba', 'demo', 'example',
+  'fake', 'falso', 'dummy', 'placeholder', 'noreal',
+  'abc', 'xyz', 'aaa', 'bbb', 'ccc', 'xxx', 'yyy', 'zzz',
+  '111', '222', '333', '000', '999',
+  'asdf', 'qwerty', 'qweasd', 'zxcvbn', 'qazwsx',
+  'admin', 'user', 'pass', 'password', '123', '456',
+  'temporal', 'temp', 'aux', 'basura', 'noreply', 'spam',
+];
+
+// Patrones de celular claramente inventado — mismo criterio que el Full Day:
+// todos el mismo dígito, pares alternados, o un grupo de 2 dígitos repetido.
+export const FAKE_WHATSAPP_PATTERNS = [/^9{9}$/, /^9(\d)\1{7}$/, /^9(01|10){4}9?$/, /^9(\d{2})\1{3}$/];
 
 // One standardized category — usada por el formulario público, el registro
 // manual, y (antes) las reservas de mesas. Se mantiene un solo vocabulario
