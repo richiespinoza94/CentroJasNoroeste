@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Modal from '../ui/Modal.jsx';
+import Modal, { useModalClose } from '../ui/Modal.jsx';
 import logoUrl from '../../assets/logo.png';
 import './ActivityQRModal.css';
 
@@ -31,6 +31,33 @@ function buildPrintHTML(activity, qrDataUrl) {
   <img class="qr" src="${qrDataUrl}" alt="Código QR de inscripción"/>
   <div class="instr">📲 Escanea para inscribirte</div>
   </body></html>`;
+}
+
+function QRModalBody({ activity, qrDataUrl, onShowFullscreen, onPrint }) {
+  const requestClose = useModalClose();
+  return (
+    <div className="qr-modal">
+      <div className="qr-modal__title">{activity.nombre}</div>
+      <div className="qr-modal__meta">
+        {activity.fecha}
+        {activity.lugar ? ` · ${activity.lugar}` : ''}
+      </div>
+
+      <div className="qr-modal__canvas">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de inscripción" /> : <div className="qr-modal__loading">Generando…</div>}</div>
+
+      <div className="qr-modal__actions">
+        <button type="button" className="qr-modal__btn qr-modal__btn--primary press" disabled={!qrDataUrl} onClick={onShowFullscreen}>
+          Pantalla completa
+        </button>
+        <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={onPrint}>
+          Descargar / Imprimir
+        </button>
+      </div>
+      <button type="button" className="qr-modal__close press" onClick={() => requestClose()}>
+        Cerrar
+      </button>
+    </div>
+  );
 }
 
 export default function ActivityQRModal({ activity, triggerRef, onClose }) {
@@ -74,29 +101,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
 
   return (
     <Modal onClose={onClose} triggerRef={triggerRef} label={`QR de ${activity.nombre}`}>
-      {(requestClose) => (
-        <div className="qr-modal">
-          <div className="qr-modal__title">{activity.nombre}</div>
-          <div className="qr-modal__meta">
-            {activity.fecha}
-            {activity.lugar ? ` · ${activity.lugar}` : ''}
-          </div>
-
-          <div className="qr-modal__canvas">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de inscripción" /> : <div className="qr-modal__loading">Generando…</div>}</div>
-
-          <div className="qr-modal__actions">
-            <button type="button" className="qr-modal__btn qr-modal__btn--primary press" disabled={!qrDataUrl} onClick={() => setFullscreen(true)}>
-              Pantalla completa
-            </button>
-            <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={handlePrint}>
-              Descargar / Imprimir
-            </button>
-          </div>
-          <button type="button" className="qr-modal__close press" onClick={requestClose}>
-            Cerrar
-          </button>
-        </div>
-      )}
+      <QRModalBody activity={activity} qrDataUrl={qrDataUrl} onShowFullscreen={() => setFullscreen(true)} onPrint={handlePrint} />
     </Modal>
   );
 }

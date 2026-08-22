@@ -1,0 +1,392 @@
+diff --git a/src/components/Admin/ActivityQRModal.jsx b/src/components/Admin/ActivityQRModal.jsx
+index 7ebc260..1e46b56 100644
+--- a/src/components/Admin/ActivityQRModal.jsx
++++ b/src/components/Admin/ActivityQRModal.jsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useRef, useState } from 'react';
+-import Modal from '../ui/Modal.jsx';
++import Modal, { useModalClose } from '../ui/Modal.jsx';
+ import logoUrl from '../../assets/logo.png';
+ import './ActivityQRModal.css';
+ 
+@@ -33,6 +33,33 @@ function buildPrintHTML(activity, qrDataUrl) {
+   </body></html>`;
+ }
+ 
++function QRModalBody({ activity, qrDataUrl, onShowFullscreen, onPrint }) {
++  const requestClose = useModalClose();
++  return (
++    <div className="qr-modal">
++      <div className="qr-modal__title">{activity.nombre}</div>
++      <div className="qr-modal__meta">
++        {activity.fecha}
++        {activity.lugar ? ` · ${activity.lugar}` : ''}
++      </div>
++
++      <div className="qr-modal__canvas">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de inscripción" /> : <div className="qr-modal__loading">Generando…</div>}</div>
++
++      <div className="qr-modal__actions">
++        <button type="button" className="qr-modal__btn qr-modal__btn--primary press" disabled={!qrDataUrl} onClick={onShowFullscreen}>
++          Pantalla completa
++        </button>
++        <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={onPrint}>
++          Descargar / Imprimir
++        </button>
++      </div>
++      <button type="button" className="qr-modal__close press" onClick={() => requestClose()}>
++        Cerrar
++      </button>
++    </div>
++  );
++}
++
+ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+   const [qrDataUrl, setQrDataUrl] = useState(null);
+   const [fullscreen, setFullscreen] = useState(false);
+@@ -74,29 +101,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+ 
+   return (
+     <Modal onClose={onClose} triggerRef={triggerRef} label={`QR de ${activity.nombre}`}>
+-      {(requestClose) => (
+-        <div className="qr-modal">
+-          <div className="qr-modal__title">{activity.nombre}</div>
+-          <div className="qr-modal__meta">
+-            {activity.fecha}
+-            {activity.lugar ? ` · ${activity.lugar}` : ''}
+-          </div>
+-
+-          <div className="qr-modal__canvas">{qrDataUrl ? <img src={qrDataUrl} alt="Código QR de inscripción" /> : <div className="qr-modal__loading">Generando…</div>}</div>
+-
+-          <div className="qr-modal__actions">
+-            <button type="button" className="qr-modal__btn qr-modal__btn--primary press" disabled={!qrDataUrl} onClick={() => setFullscreen(true)}>
+-              Pantalla completa
+-            </button>
+-            <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={handlePrint}>
+-              Descargar / Imprimir
+-            </button>
+-          </div>
+-          <button type="button" className="qr-modal__close press" onClick={requestClose}>
+-            Cerrar
+-          </button>
+-        </div>
+-      )}
++      <QRModalBody activity={activity} qrDataUrl={qrDataUrl} onShowFullscreen={() => setFullscreen(true)} onPrint={handlePrint} />
+     </Modal>
+   );
+ }
+diff --git a/src/components/Admin/PersonasConfig.css b/src/components/Admin/PersonasConfig.css
+index c78087c..969597a 100644
+--- a/src/components/Admin/PersonasConfig.css
++++ b/src/components/Admin/PersonasConfig.css
+@@ -104,86 +104,9 @@
+   color: var(--ink-300);
+ }
+ 
+-/* Modal de edición — blur de fondo para indicar que se puede descartar
+-   tocando afuera (Apple HIG: blur/backdrop = dismissal), tarjeta centrada,
+-   ruta de escape explícita (Cancelar + Escape + click afuera). Anima desde
+-   el trigger (slide-up + fade) en vez de aparecer de golpe — mismos tokens
+-   de motion (--motion-base, --ease-out) que ToastHost usa para toast-in. */
+-.personas-modal__backdrop {
+-  position: fixed;
+-  inset: 0;
+-  background: rgba(15, 23, 42, 0.55);
+-  backdrop-filter: blur(2px);
+-  display: flex;
+-  align-items: flex-end;
+-  justify-content: center;
+-  z-index: 60;
+-  padding: 0;
+-  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out);
+-}
+-
+-.personas-modal__backdrop--closing {
+-  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out) reverse;
+-}
+-
+-@media (min-width: 640px) {
+-  .personas-modal__backdrop {
+-    align-items: center;
+-    padding: 20px;
+-  }
+-}
+-
+-@keyframes personas-modal-backdrop-in {
+-  from {
+-    opacity: 0;
+-  }
+-  to {
+-    opacity: 1;
+-  }
+-}
+-
+-.personas-modal {
+-  background: var(--white);
+-  width: 100%;
+-  max-width: 480px;
+-  max-height: 88vh;
+-  overflow-y: auto;
+-  border-radius: 16px 16px 0 0;
+-  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+-  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out);
+-}
+-
+-.personas-modal--closing {
+-  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out) reverse;
+-}
+-
+-@keyframes personas-modal-sheet-in {
+-  from {
+-    opacity: 0;
+-    transform: translateY(24px);
+-  }
+-  to {
+-    opacity: 1;
+-    transform: translateY(0);
+-  }
+-}
+-
+-@media (min-width: 640px) {
+-  .personas-modal {
+-    border-radius: var(--radius-lg);
+-    padding: 22px;
+-  }
+-  @keyframes personas-modal-sheet-in {
+-    from {
+-      opacity: 0;
+-      transform: translateY(8px) scale(0.97);
+-    }
+-    to {
+-      opacity: 1;
+-      transform: translateY(0) scale(1);
+-    }
+-  }
+-}
++/* El chrome del modal (backdrop, animación de entrada/salida, blur, ruta de
++   escape) ahora vive en ui/Modal.css, compartido — este archivo solo
++   define el contenido del formulario. */
+ 
+ .personas-modal__hint {
+   font-size: 12px;
+diff --git a/src/components/Admin/PersonasConfig.jsx b/src/components/Admin/PersonasConfig.jsx
+index ab0bdcf..cf331f7 100644
+--- a/src/components/Admin/PersonasConfig.jsx
++++ b/src/components/Admin/PersonasConfig.jsx
+@@ -1,9 +1,10 @@
+-import { useEffect, useMemo, useRef, useState } from 'react';
++import { useMemo, useState } from 'react';
+ import { useToast } from '../../hooks/useToast.jsx';
+ import { updatePersona, setCategoria } from '../../firebase/collections.js';
+ import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
+ import { PencilIcon } from '../ui/Icon.jsx';
+ import Field from '../ui/Field.jsx';
++import Modal, { useModalClose } from '../ui/Modal.jsx';
+ import './PersonasConfig.css';
+ 
+ const PAGE_SIZE = 15;
+@@ -38,23 +39,17 @@ function scorePersona(query, persona) {
+   return -1;
+ }
+ 
+-const FOCUSABLE = 'input, select, textarea, button:not([disabled])';
+-
+-// Ventana de edición. Se justifica como patrón nuevo (el resto del Admin
+-// edita inline arriba de la lista) porque Personas es una lista larga y
+-// paginada — reabrir un formulario arriba de la página pierde el contexto
+-// de en qué fila estabas.
++// Formulario de edición — vive dentro de <Modal>, que ya resuelve
++// animación de entrada/salida, foco atrapado, Escape/click-afuera, scroll
++// de fondo bloqueado y devolución de foco (ver ui/Modal.jsx). Este
++// componente solo se encarga del formulario en sí; para cerrar usa
++// useModalClose() en vez de que se lo pasen como prop.
+ //
+-// Interacciones cubiertas (ux-ui-pro-max):
+-// - Anima desde el trigger (slide-up + fade), no aparece de golpe.
+-// - Cierre simétrico: Cancelar, click afuera, o Escape — todos con la misma
+-//   animación de salida, nunca un cierre instantáneo.
+-// - Foco atrapado dentro del modal (Tab cicla, no se escapa al fondo) y
+-//   vuelve al botón que lo abrió al cerrar.
++// Sigue cubriendo (ux-ui-pro-max):
+ // - Si guardar falla, el modal se queda abierto con el error visible junto
+ //   a las acciones — nunca se descartan los cambios en silencio.
+-// - Scroll del fondo bloqueado mientras está abierto.
+-function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, onClose }) {
++function EditPersonaForm({ persona, inscripcion, activeActivity }) {
++  const requestClose = useModalClose();
+   const [form, setForm] = useState({
+     nombre: persona.nombre || '',
+     apellidos: persona.apellidos || '',
+@@ -67,48 +62,8 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
+   });
+   const [saving, setSaving] = useState(false);
+   const [error, setError] = useState('');
+-  const [closing, setClosing] = useState(false);
+-  const dialogRef = useRef(null);
+   const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
+ 
+-  function requestClose(saved = false) {
+-    setClosing(true);
+-    setTimeout(() => {
+-      onClose(saved);
+-      triggerRef.current?.focus();
+-    }, 180);
+-  }
+-
+-  useEffect(() => {
+-    dialogRef.current?.querySelector('input,select')?.focus();
+-    document.body.style.overflow = 'hidden';
+-
+-    function handleKey(e) {
+-      if (e.key === 'Escape') {
+-        requestClose();
+-        return;
+-      }
+-      if (e.key !== 'Tab') return;
+-      const focusables = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
+-      if (focusables.length === 0) return;
+-      const first = focusables[0];
+-      const last = focusables[focusables.length - 1];
+-      if (e.shiftKey && document.activeElement === first) {
+-        e.preventDefault();
+-        last.focus();
+-      } else if (!e.shiftKey && document.activeElement === last) {
+-        e.preventDefault();
+-        first.focus();
+-      }
+-    }
+-    document.addEventListener('keydown', handleKey);
+-    return () => {
+-      document.removeEventListener('keydown', handleKey);
+-      document.body.style.overflow = '';
+-    };
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, []);
+-
+   async function handleSubmit(e) {
+     e.preventDefault();
+     if (!form.nombre.trim() || !form.apellidos.trim()) return;
+@@ -131,18 +86,17 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
+   const barrioOptions = ESTACAS[form.estaca] || [];
+ 
+   return (
+-    <div className={`personas-modal__backdrop${closing ? ' personas-modal__backdrop--closing' : ''}`} onClick={(e) => e.target === e.currentTarget && requestClose()}>
+-      <div className={`personas-modal${closing ? ' personas-modal--closing' : ''}`} role="dialog" aria-modal="true" aria-label="Editar persona" ref={dialogRef}>
+-        <div className="personas-modal__title">Editar datos</div>
+-        <form onSubmit={handleSubmit} className="personas-modal__form">
+-          <div className="personas-modal__row">
+-            <Field id="editNombre" label="Nombre">
+-              {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
+-            </Field>
+-            <Field id="editApellidos" label="Apellidos">
+-              {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
+-            </Field>
+-          </div>
++    <>
++      <div className="personas-modal__title">Editar datos</div>
++      <form onSubmit={handleSubmit} className="personas-modal__form">
++        <div className="personas-modal__row">
++          <Field id="editNombre" label="Nombre">
++            {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
++          </Field>
++          <Field id="editApellidos" label="Apellidos">
++            {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
++          </Field>
++        </div>
+           <div className="personas-modal__row">
+             <Field id="editSexo" label="Sexo">
+               {(a) => (
+@@ -214,17 +168,16 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
+             </div>
+           )}
+ 
+-          <div className="personas-modal__actions">
+-            <button type="button" className="personas-modal__cancel press" onClick={() => requestClose()} disabled={saving}>
+-              Cancelar
+-            </button>
+-            <button type="submit" className="personas-modal__save press" disabled={saving}>
+-              {saving ? 'Guardando…' : 'Guardar cambios'}
+-            </button>
+-          </div>
+-        </form>
+-      </div>
+-    </div>
++        <div className="personas-modal__actions">
++          <button type="button" className="personas-modal__cancel press" onClick={() => requestClose()} disabled={saving}>
++            Cancelar
++          </button>
++          <button type="submit" className="personas-modal__save press" disabled={saving}>
++            {saving ? 'Guardando…' : 'Guardar cambios'}
++          </button>
++        </div>
++      </form>
++    </>
+   );
+ }
+ 
+@@ -321,13 +274,9 @@ export default function PersonasConfig({ personas, participants = [], activeActi
+       )}
+ 
+       {editing && (
+-        <EditPersonaModal
+-          persona={editing}
+-          inscripcion={inscripcionByWhatsapp.get(editing.whatsapp) || null}
+-          activeActivity={activeActivity}
+-          triggerRef={editTriggerRef}
+-          onClose={handleClose}
+-        />
++        <Modal onClose={handleClose} triggerRef={editTriggerRef} label="Editar persona" wide>
++          <EditPersonaForm persona={editing} inscripcion={inscripcionByWhatsapp.get(editing.whatsapp) || null} activeActivity={activeActivity} />
++        </Modal>
+       )}
+     </div>
+   );
+diff --git a/src/components/ui/Modal.jsx b/src/components/ui/Modal.jsx
+index ea327bc..dfbf27a 100644
+--- a/src/components/ui/Modal.jsx
++++ b/src/components/ui/Modal.jsx
+@@ -1,7 +1,22 @@
+-import { useEffect, useRef, useState } from 'react';
++import { createContext, useContext, useEffect, useRef, useState } from 'react';
+ import './Modal.css';
+ 
+ const FOCUSABLE = 'input, select, textarea, button:not([disabled]), a[href]';
++const ModalContext = createContext(null);
++
++/**
++ * Da acceso a la función de cierre (animada) del modal más cercano, a
++ * cualquier componente que viva adentro — sin importar qué tan anidado
++ * esté. Antes esto se pasaba como argumento de `children` (render prop);
++ * con Context, cualquier botón interno puede simplemente llamar a
++ * `useModalClose()` en vez de que cada nivel intermedio tenga que reenviar
++ * la función a mano.
++ */
++export function useModalClose() {
++  const ctx = useContext(ModalContext);
++  if (!ctx) throw new Error('useModalClose debe usarse dentro de <Modal>');
++  return ctx;
++}
+ 
+ /**
+  * Modal de hoja/tarjeta con las interacciones ya validadas en el modal de
+@@ -15,10 +30,10 @@ export default function Modal({ onClose, triggerRef, label, children, wide = fal
+   const [closing, setClosing] = useState(false);
+   const dialogRef = useRef(null);
+ 
+-  function requestClose() {
++  function requestClose(saved = false) {
+     setClosing(true);
+     setTimeout(() => {
+-      onClose();
++      onClose(saved);
+       triggerRef?.current?.focus();
+     }, 180);
+   }
+@@ -62,7 +77,7 @@ export default function Modal({ onClose, triggerRef, label, children, wide = fal
+         aria-label={label}
+         ref={dialogRef}
+       >
+-        {children(requestClose)}
++        <ModalContext.Provider value={requestClose}>{children}</ModalContext.Provider>
+       </div>
+     </div>
+   );

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
 import { updatePersona, setCategoria } from '../../firebase/collections.js';
 import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
 import { PencilIcon } from '../ui/Icon.jsx';
 import Field from '../ui/Field.jsx';
+import Modal, { useModalClose } from '../ui/Modal.jsx';
 import './PersonasConfig.css';
 
 const PAGE_SIZE = 15;
@@ -38,23 +39,17 @@ function scorePersona(query, persona) {
   return -1;
 }
 
-const FOCUSABLE = 'input, select, textarea, button:not([disabled])';
-
-// Ventana de edición. Se justifica como patrón nuevo (el resto del Admin
-// edita inline arriba de la lista) porque Personas es una lista larga y
-// paginada — reabrir un formulario arriba de la página pierde el contexto
-// de en qué fila estabas.
+// Formulario de edición — vive dentro de <Modal>, que ya resuelve
+// animación de entrada/salida, foco atrapado, Escape/click-afuera, scroll
+// de fondo bloqueado y devolución de foco (ver ui/Modal.jsx). Este
+// componente solo se encarga del formulario en sí; para cerrar usa
+// useModalClose() en vez de que se lo pasen como prop.
 //
-// Interacciones cubiertas (ux-ui-pro-max):
-// - Anima desde el trigger (slide-up + fade), no aparece de golpe.
-// - Cierre simétrico: Cancelar, click afuera, o Escape — todos con la misma
-//   animación de salida, nunca un cierre instantáneo.
-// - Foco atrapado dentro del modal (Tab cicla, no se escapa al fondo) y
-//   vuelve al botón que lo abrió al cerrar.
+// Sigue cubriendo (ux-ui-pro-max):
 // - Si guardar falla, el modal se queda abierto con el error visible junto
 //   a las acciones — nunca se descartan los cambios en silencio.
-// - Scroll del fondo bloqueado mientras está abierto.
-function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, onClose }) {
+function EditPersonaForm({ persona, inscripcion, activeActivity }) {
+  const requestClose = useModalClose();
   const [form, setForm] = useState({
     nombre: persona.nombre || '',
     apellidos: persona.apellidos || '',
@@ -67,47 +62,7 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [closing, setClosing] = useState(false);
-  const dialogRef = useRef(null);
   const setField = (patch) => setForm((f) => ({ ...f, ...patch }));
-
-  function requestClose(saved = false) {
-    setClosing(true);
-    setTimeout(() => {
-      onClose(saved);
-      triggerRef.current?.focus();
-    }, 180);
-  }
-
-  useEffect(() => {
-    dialogRef.current?.querySelector('input,select')?.focus();
-    document.body.style.overflow = 'hidden';
-
-    function handleKey(e) {
-      if (e.key === 'Escape') {
-        requestClose();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      const focusables = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -131,18 +86,17 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
   const barrioOptions = ESTACAS[form.estaca] || [];
 
   return (
-    <div className={`personas-modal__backdrop${closing ? ' personas-modal__backdrop--closing' : ''}`} onClick={(e) => e.target === e.currentTarget && requestClose()}>
-      <div className={`personas-modal${closing ? ' personas-modal--closing' : ''}`} role="dialog" aria-modal="true" aria-label="Editar persona" ref={dialogRef}>
-        <div className="personas-modal__title">Editar datos</div>
-        <form onSubmit={handleSubmit} className="personas-modal__form">
-          <div className="personas-modal__row">
-            <Field id="editNombre" label="Nombre">
-              {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
-            </Field>
-            <Field id="editApellidos" label="Apellidos">
-              {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
-            </Field>
-          </div>
+    <>
+      <div className="personas-modal__title">Editar datos</div>
+      <form onSubmit={handleSubmit} className="personas-modal__form">
+        <div className="personas-modal__row">
+          <Field id="editNombre" label="Nombre">
+            {(a) => <input {...a} type="text" value={form.nombre} onChange={(e) => setField({ nombre: e.target.value })} />}
+          </Field>
+          <Field id="editApellidos" label="Apellidos">
+            {(a) => <input {...a} type="text" value={form.apellidos} onChange={(e) => setField({ apellidos: e.target.value })} />}
+          </Field>
+        </div>
           <div className="personas-modal__row">
             <Field id="editSexo" label="Sexo">
               {(a) => (
@@ -214,17 +168,16 @@ function EditPersonaModal({ persona, inscripcion, activeActivity, triggerRef, on
             </div>
           )}
 
-          <div className="personas-modal__actions">
-            <button type="button" className="personas-modal__cancel press" onClick={() => requestClose()} disabled={saving}>
-              Cancelar
-            </button>
-            <button type="submit" className="personas-modal__save press" disabled={saving}>
-              {saving ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="personas-modal__actions">
+          <button type="button" className="personas-modal__cancel press" onClick={() => requestClose()} disabled={saving}>
+            Cancelar
+          </button>
+          <button type="submit" className="personas-modal__save press" disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </div>
+      </form>
+    </>
   );
 }
 
@@ -321,13 +274,9 @@ export default function PersonasConfig({ personas, participants = [], activeActi
       )}
 
       {editing && (
-        <EditPersonaModal
-          persona={editing}
-          inscripcion={inscripcionByWhatsapp.get(editing.whatsapp) || null}
-          activeActivity={activeActivity}
-          triggerRef={editTriggerRef}
-          onClose={handleClose}
-        />
+        <Modal onClose={handleClose} triggerRef={editTriggerRef} label="Editar persona" wide>
+          <EditPersonaForm persona={editing} inscripcion={inscripcionByWhatsapp.get(editing.whatsapp) || null} activeActivity={activeActivity} />
+        </Modal>
       )}
     </div>
   );

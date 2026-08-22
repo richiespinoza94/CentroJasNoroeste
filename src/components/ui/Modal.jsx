@@ -1,7 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import './Modal.css';
 
 const FOCUSABLE = 'input, select, textarea, button:not([disabled]), a[href]';
+const ModalContext = createContext(null);
+
+/**
+ * Da acceso a la función de cierre (animada) del modal más cercano, a
+ * cualquier componente que viva adentro — sin importar qué tan anidado
+ * esté. Antes esto se pasaba como argumento de `children` (render prop);
+ * con Context, cualquier botón interno puede simplemente llamar a
+ * `useModalClose()` en vez de que cada nivel intermedio tenga que reenviar
+ * la función a mano.
+ */
+export function useModalClose() {
+  const ctx = useContext(ModalContext);
+  if (!ctx) throw new Error('useModalClose debe usarse dentro de <Modal>');
+  return ctx;
+}
 
 /**
  * Modal de hoja/tarjeta con las interacciones ya validadas en el modal de
@@ -15,10 +30,10 @@ export default function Modal({ onClose, triggerRef, label, children, wide = fal
   const [closing, setClosing] = useState(false);
   const dialogRef = useRef(null);
 
-  function requestClose() {
+  function requestClose(saved = false) {
     setClosing(true);
     setTimeout(() => {
-      onClose();
+      onClose(saved);
       triggerRef?.current?.focus();
     }, 180);
   }
@@ -62,7 +77,7 @@ export default function Modal({ onClose, triggerRef, label, children, wide = fal
         aria-label={label}
         ref={dialogRef}
       >
-        {children(requestClose)}
+        <ModalContext.Provider value={requestClose}>{children}</ModalContext.Provider>
       </div>
     </div>
   );

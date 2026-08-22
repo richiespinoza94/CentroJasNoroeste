@@ -104,86 +104,9 @@
   color: var(--ink-300);
 }
 
-/* Modal de edición — blur de fondo para indicar que se puede descartar
-   tocando afuera (Apple HIG: blur/backdrop = dismissal), tarjeta centrada,
-   ruta de escape explícita (Cancelar + Escape + click afuera). Anima desde
-   el trigger (slide-up + fade) en vez de aparecer de golpe — mismos tokens
-   de motion (--motion-base, --ease-out) que ToastHost usa para toast-in. */
-.personas-modal__backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 60;
-  padding: 0;
-  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out);
-}
-
-.personas-modal__backdrop--closing {
-  animation: personas-modal-backdrop-in var(--motion-base) var(--ease-out) reverse;
-}
-
-@media (min-width: 640px) {
-  .personas-modal__backdrop {
-    align-items: center;
-    padding: 20px;
-  }
-}
-
-@keyframes personas-modal-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.personas-modal {
-  background: var(--white);
-  width: 100%;
-  max-width: 480px;
-  max-height: 88vh;
-  overflow-y: auto;
-  border-radius: 16px 16px 0 0;
-  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
-  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out);
-}
-
-.personas-modal--closing {
-  animation: personas-modal-sheet-in var(--motion-base) var(--ease-out) reverse;
-}
-
-@keyframes personas-modal-sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (min-width: 640px) {
-  .personas-modal {
-    border-radius: var(--radius-lg);
-    padding: 22px;
-  }
-  @keyframes personas-modal-sheet-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px) scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-}
+/* El chrome del modal (backdrop, animación de entrada/salida, blur, ruta de
+   escape) ahora vive en ui/Modal.css, compartido — este archivo solo
+   define el contenido del formulario. */
 
 .personas-modal__hint {
   font-size: 12px;
