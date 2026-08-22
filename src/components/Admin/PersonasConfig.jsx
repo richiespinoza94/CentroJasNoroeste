@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
 import { updatePersona, setCategoria } from '../../firebase/collections.js';
 import { ESTACAS, CATEGORIAS } from '../../domain/constants.js';
