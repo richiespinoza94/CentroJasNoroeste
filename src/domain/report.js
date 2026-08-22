@@ -35,8 +35,14 @@ export function buildParticipantsWorkbook(participants) {
 }
 
 /** Arma el libro y dispara la descarga — el único punto del código que sabe que el reporte se genera con la librería xlsx. */
-export function downloadParticipantsReport(participants) {
+export function downloadParticipantsReport(participants, activityLabel = 'centro-jas') {
   const wb = buildParticipantsWorkbook(participants);
   const fecha = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `centro-jas-registrados-${fecha}.xlsx`);
+  const slug = activityLabel
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  XLSX.writeFile(wb, `${slug || 'centro-jas'}-registrados-${fecha}.xlsx`);
 }

@@ -8,11 +8,13 @@ import DistributionBars from '../shared/DistributionBars.jsx';
 import UsersConfig from './UsersConfig.jsx';
 import ActivitiesConfig from './ActivitiesConfig.jsx';
 import PersonasConfig from './PersonasConfig.jsx';
+import ActivityHistory from './ActivityHistory.jsx';
 import './AdminScreen.css';
 
 const TABS = [
   { id: 'actividades', label: 'Actividades' },
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'historial', label: 'Historial' },
   { id: 'personas', label: 'Personas' },
   { id: 'usuarios', label: 'Usuarios' },
 ];
@@ -31,7 +33,7 @@ export default function AdminScreen() {
     setDownloading(true);
     try {
       const { downloadParticipantsReport } = await import('../../domain/report.js');
-      downloadParticipantsReport(participants);
+      downloadParticipantsReport(participants, activeActivity?.nombre);
       toast(`Reporte descargado — ${participants.length} registrados en 4 pestañas.`);
     } catch {
       toast('No se pudo generar el reporte.', 'error');
@@ -85,6 +87,7 @@ export default function AdminScreen() {
       )}
 
       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
+      {tab === 'historial' && <ActivityHistory activities={activities} personas={personas} />}
       {tab === 'personas' && <PersonasConfig personas={personas} participants={participants} activeActivity={activeActivity} />}
       {tab === 'usuarios' && <UsersConfig />}
     </div>

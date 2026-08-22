@@ -125,6 +125,15 @@ const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
 // the number) — this is the one place that derives it back onto every row,
 // so nothing downstream needs to know id===whatsapp is an implementation
 // detail.
+// Historial de actividades (Admin): trae TODAS las inscripciones de una
+// sola vez (sin filtrar por actividad) para poder agrupar por actividad en
+// el cliente. Es una lectura puntual (no un listener en vivo) — el
+// historial no necesita actualizarse en tiempo real como sí lo necesita la
+// recepción de la actividad activa.
+export function fetchAllInscripciones() {
+  return getDocs(collection(db, 'inscripciones')).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+}
+
 export function subscribePersonas(callback) {
   return subscribeWithRetry(collection(db, 'personas'), (rows) => callback(rows.map((r) => ({ ...r, whatsapp: r.id }))));
 }
