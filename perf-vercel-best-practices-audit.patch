@@ -1,0 +1,67 @@
+diff --git a/src/components/Admin/AttendanceTrendChart.jsx b/src/components/Admin/AttendanceTrendChart.jsx
+index 90ed019..7c4be6b 100644
+--- a/src/components/Admin/AttendanceTrendChart.jsx
++++ b/src/components/Admin/AttendanceTrendChart.jsx
+@@ -7,6 +7,11 @@ const PAD_RIGHT = 16;
+ const PAD_TOP = 28;
+ const PAD_BOTTOM = 36;
+ 
++// 1 decimal alcanza de sobra para un viewBox de 640×220 — evita que cada
++// coordenada arrastre precisión de punto flotante completa al markup del
++// SVG (ej. "94.85714285714286" en vez de "94.9").
++const round1 = (n) => Math.round(n * 10) / 10;
++
+ function buildPath(points) {
+   return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+ }
+@@ -33,10 +38,10 @@ export default function AttendanceTrendChart({ data }) {
+   const plotW = WIDTH - PAD_LEFT - PAD_RIGHT;
+   const plotH = HEIGHT - PAD_TOP - PAD_BOTTOM;
+   const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
+-  const yFor = (v) => PAD_TOP + plotH - (v / maxVal) * plotH;
++  const yFor = (v) => round1(PAD_TOP + plotH - (v / maxVal) * plotH);
+ 
+-  const registradosPts = data.map((d, i) => ({ x: PAD_LEFT + i * stepX, y: yFor(d.registrados), v: d.registrados, label: d.label, fecha: d.fecha }));
+-  const presentesPts = data.map((d, i) => ({ x: PAD_LEFT + i * stepX, y: yFor(d.presentes), v: d.presentes, label: d.label, fecha: d.fecha }));
++  const registradosPts = data.map((d, i) => ({ x: round1(PAD_LEFT + i * stepX), y: yFor(d.registrados), v: d.registrados, label: d.label, fecha: d.fecha }));
++  const presentesPts = data.map((d, i) => ({ x: round1(PAD_LEFT + i * stepX), y: yFor(d.presentes), v: d.presentes, label: d.label, fecha: d.fecha }));
+ 
+   const first = data[0].presentes;
+   const last = data[data.length - 1].presentes;
+diff --git a/src/firebase/DataProvider.jsx b/src/firebase/DataProvider.jsx
+index 433010b..f6a9756 100644
+--- a/src/firebase/DataProvider.jsx
++++ b/src/firebase/DataProvider.jsx
+@@ -45,20 +45,27 @@ export function DataProvider({ children }) {
+   }, [user]);
+ 
+   // Scoped to whichever activity is active right now — this is what
+-  // Reception/Admin's day-to-day screens operate on.
++  // Reception/Admin's day-to-day screens operate on. Depends on the
++  // primitive id, not the `activeActivity` object — Firestore hands back a
++  // new array/object reference on every snapshot of `activities`, even one
++  // triggered by editing a *different*, inactive activity elsewhere in
++  // Admin. Depending on the object would tear down and reopen this
++  // subscription on every unrelated edit instead of only when the active
++  // activity itself actually changes.
++  const activeActivityId = activeActivity?.id ?? null;
+   useEffect(() => {
+-    if (!user || !activeActivity) {
++    if (!user || !activeActivityId) {
+       setInscripciones([]);
+-      setInscripcionesReady(!activeActivity); // nothing to wait for if there's no active activity
++      setInscripcionesReady(!activeActivityId);
+       return;
+     }
+     setInscripcionesReady(false);
+-    const unsub = subscribeInscripciones(activeActivity.id, (rows) => {
++    const unsub = subscribeInscripciones(activeActivityId, (rows) => {
+       setInscripciones(rows);
+       setInscripcionesReady(true);
+     });
+     return unsub;
+-  }, [user, activeActivity]);
++  }, [user, activeActivityId]);
+ 
+   // Joins personas + inscripciones into the same flat shape the old
+   // participants collection had — SearchTab, ManualTab, StatCards,

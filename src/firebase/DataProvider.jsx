@@ -45,20 +45,27 @@ export function DataProvider({ children }) {
   }, [user]);
 
   // Scoped to whichever activity is active right now — this is what
-  // Reception/Admin's day-to-day screens operate on.
+  // Reception/Admin's day-to-day screens operate on. Depends on the
+  // primitive id, not the `activeActivity` object — Firestore hands back a
+  // new array/object reference on every snapshot of `activities`, even one
+  // triggered by editing a *different*, inactive activity elsewhere in
+  // Admin. Depending on the object would tear down and reopen this
+  // subscription on every unrelated edit instead of only when the active
+  // activity itself actually changes.
+  const activeActivityId = activeActivity?.id ?? null;
   useEffect(() => {
-    if (!user || !activeActivity) {
+    if (!user || !activeActivityId) {
       setInscripciones([]);
-      setInscripcionesReady(!activeActivity); // nothing to wait for if there's no active activity
+      setInscripcionesReady(!activeActivityId);
       return;
     }
     setInscripcionesReady(false);
-    const unsub = subscribeInscripciones(activeActivity.id, (rows) => {
+    const unsub = subscribeInscripciones(activeActivityId, (rows) => {
       setInscripciones(rows);
       setInscripcionesReady(true);
     });
     return unsub;
-  }, [user, activeActivity]);
+  }, [user, activeActivityId]);
 
   // Joins personas + inscripciones into the same flat shape the old
   // participants collection had — SearchTab, ManualTab, StatCards,

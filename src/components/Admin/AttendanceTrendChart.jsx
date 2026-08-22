@@ -7,6 +7,11 @@ const PAD_RIGHT = 16;
 const PAD_TOP = 28;
 const PAD_BOTTOM = 36;
 
+// 1 decimal alcanza de sobra para un viewBox de 640×220 — evita que cada
+// coordenada arrastre precisión de punto flotante completa al markup del
+// SVG (ej. "94.85714285714286" en vez de "94.9").
+const round1 = (n) => Math.round(n * 10) / 10;
+
 function buildPath(points) {
   return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 }
@@ -33,10 +38,10 @@ export default function AttendanceTrendChart({ data }) {
   const plotW = WIDTH - PAD_LEFT - PAD_RIGHT;
   const plotH = HEIGHT - PAD_TOP - PAD_BOTTOM;
   const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
-  const yFor = (v) => PAD_TOP + plotH - (v / maxVal) * plotH;
+  const yFor = (v) => round1(PAD_TOP + plotH - (v / maxVal) * plotH);
 
-  const registradosPts = data.map((d, i) => ({ x: PAD_LEFT + i * stepX, y: yFor(d.registrados), v: d.registrados, label: d.label, fecha: d.fecha }));
-  const presentesPts = data.map((d, i) => ({ x: PAD_LEFT + i * stepX, y: yFor(d.presentes), v: d.presentes, label: d.label, fecha: d.fecha }));
+  const registradosPts = data.map((d, i) => ({ x: round1(PAD_LEFT + i * stepX), y: yFor(d.registrados), v: d.registrados, label: d.label, fecha: d.fecha }));
+  const presentesPts = data.map((d, i) => ({ x: round1(PAD_LEFT + i * stepX), y: yFor(d.presentes), v: d.presentes, label: d.label, fecha: d.fecha }));
 
   const first = data[0].presentes;
   const last = data[data.length - 1].presentes;
