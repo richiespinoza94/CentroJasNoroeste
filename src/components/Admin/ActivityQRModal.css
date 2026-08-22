@@ -35,6 +35,26 @@
   font-size: 12.5px;
   color: var(--ink-300);
 }
+.qr-modal__share {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
+  color: var(--navy-800);
+  box-shadow: 0 4px 14px rgba(245, 166, 35, 0.35);
+  margin-bottom: 10px;
+}
+.qr-modal__share:disabled {
+  opacity: 0.6;
+  box-shadow: none;
+}
+
 .qr-modal__actions {
   display: flex;
   gap: 8px;
@@ -49,11 +69,6 @@
   background: var(--white);
   color: var(--navy-800);
   border: 1.5px solid var(--line-200);
-}
-.qr-modal__btn--primary {
-  background: var(--navy-800);
-  color: var(--white);
-  border-color: var(--navy-800);
 }
 .qr-modal__btn:disabled {
   opacity: 0.5;
