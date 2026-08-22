@@ -1,6 +1,8 @@
 import {
+  addDoc,
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -99,6 +101,23 @@ export async function setActiveActivity(activityId, allActivities) {
 // per-activity participation record. Reception/Admin still work with a
 // single joined "participant" shape — see DataProvider.jsx — so this is the
 // only file that needs to know the data lives in two collections now.
+// Fase 2 — identidad única en el formulario público. `personas_publico` es
+// un índice de solo-lectura pública con la exposición mínima que se decidió
+// (nombre completo + estaca, nada de WhatsApp/correo/barrio) para poder
+// avisar "ya vimos a alguien parecido" sin filtrar datos de contacto. ID
+// aleatorio a propósito — un ID = whatsapp en una colección listable
+// públicamente sería el dato sensible filtrado, aunque el documento en sí
+// no tenga el campo. Create-only, sin dedupe: es un aviso suave, no un
+// registro de verdad, así que una entrada repetida por reinscripción es un
+// costo aceptable frente a la complejidad de mantenerlo sincronizado.
+export function subscribePublicIndex() {
+  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => d.data()));
+}
+
+function mirrorPublicIndex(nombreCompleto, estaca) {
+  addDoc(collection(db, 'personas_publico'), { nombreCompleto, estaca }).catch(() => {});
+}
+
 const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
 
 // Staff-only, all personas (used by Admin → Personas and by the join in
@@ -118,10 +137,6 @@ export function subscribePersonas(callback) {
 // Reception/Admin actually operate on day-to-day.
 export function subscribeInscripciones(activityId, callback) {
   return subscribeWithRetry(query(collection(db, 'inscripciones'), where('activityId', '==', activityId)), callback);
-}
-
-export function subscribeTables(callback) {
-  return subscribeWithRetry(query(collection(db, 'tables'), orderBy('createdAt', 'asc')), callback);
 }
 
 /**
@@ -151,6 +166,7 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
 }
 
 export function registerParticipant(form, activityId) {
+  mirrorPublicIndex(`${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
   return registerForActivity(
     activityId,
     form.whatsapp,
@@ -163,16 +179,17 @@ export function registerParticipant(form, activityId) {
       barrio: form.barrio.trim(),
       correo: form.correo,
     },
-    { categoria: form.categoria, status: 'pendiente', tableId: null }
+    { categoria: form.categoria, status: 'pendiente' }
   );
 }
 
 export function registerManual(m, activityId) {
+  mirrorPublicIndex(`${m.nombre.trim()} ${m.apellidos.trim()}`, m.estaca);
   return registerForActivity(
     activityId,
     m.whatsapp,
     { nombre: m.nombre.trim(), apellidos: m.apellidos.trim(), estaca: m.estaca, barrio: m.barrio.trim() },
-    { categoria: m.categoria, status: 'presente', tableId: null }
+    { categoria: m.categoria, status: 'presente' }
   );
 }
 
@@ -193,23 +210,9 @@ export function checkIn(inscripcionId) {
   return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
 }
 
-/** Undo an accidental check-in — back to "pendiente", only valid before a table was assigned. */
+/** Undo an accidental check-in — back to "pendiente". */
 export function revertCheckIn(inscripcionId) {
   return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'pendiente', updatedAt: serverTimestamp() });
-}
-
-/**
- * Staff doesn't necessarily sit at a table — this closes that loop instead
- * of leaving them stuck in "presente" showing an unresolved "mesas
- * recomendadas" prompt every time someone looks them up.
- */
-export function markNoTableNeeded(inscripcionId) {
-  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'sin_mesa', tableId: null, updatedAt: serverTimestamp() });
-}
-
-/** Undo "sin mesa" — back to "presente", in case it was marked by mistake or plans changed. */
-export function revertNoTableNeeded(inscripcionId) {
-  return updateDoc(doc(db, 'inscripciones', inscripcionId), { status: 'presente', updatedAt: serverTimestamp() });
 }
 
 /**
@@ -218,77 +221,4 @@ export function revertNoTableNeeded(inscripcionId) {
  */
 export function setCategoria(inscripcionId, categoria) {
   return updateDoc(doc(db, 'inscripciones', inscripcionId), { categoria, updatedAt: serverTimestamp() });
-}
-
-/**
- * Moves a participant onto a table, capacity-checked and race-safe: this is
- * the one operation the PRD calls out explicitly (§16) — two reception
- * devices assigning the last two seats at the same instant must never both
- * succeed. `table.occ` is a denormalized counter kept in sync with the
- * inscripción's tableId inside this same transaction, so a capacity check
- * is a single-document read instead of a collection scan.
- */
-export async function assignTable(inscripcionId, tableId) {
-  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
-  const tableRef = doc(db, 'tables', tableId);
-
-  await runTransaction(db, async (tx) => {
-    const [inscripcionSnap, tableSnap] = await Promise.all([tx.get(inscripcionRef), tx.get(tableRef)]);
-    if (!tableSnap.exists()) throw new Error('Esa mesa ya no existe.');
-    const table = tableSnap.data();
-    const inscripcion = inscripcionSnap.data();
-
-    let previousTableSnap = null;
-    if (inscripcion.tableId && inscripcion.tableId !== tableId) {
-      previousTableSnap = await tx.get(doc(db, 'tables', inscripcion.tableId));
-    }
-
-    const occ = table.occ || 0;
-    if (occ >= table.capacity) throw new Error(`${table.name} ya está completa.`);
-
-    if (previousTableSnap?.exists()) {
-      tx.update(previousTableSnap.ref, { occ: Math.max(0, (previousTableSnap.data().occ || 0) - 1) });
-    }
-    tx.update(tableRef, { occ: occ + 1 });
-    tx.update(inscripcionRef, { status: 'asignado', tableId, updatedAt: serverTimestamp() });
-  });
-}
-
-export async function unassignTable(inscripcionId) {
-  const inscripcionRef = doc(db, 'inscripciones', inscripcionId);
-  await runTransaction(db, async (tx) => {
-    const inscripcionSnap = await tx.get(inscripcionRef);
-    const inscripcion = inscripcionSnap.data();
-    if (inscripcion.tableId) {
-      const tableRef = doc(db, 'tables', inscripcion.tableId);
-      const tableSnap = await tx.get(tableRef);
-      if (tableSnap.exists()) tx.update(tableRef, { occ: Math.max(0, (tableSnap.data().occ || 0) - 1) });
-    }
-    tx.update(inscripcionRef, { status: 'presente', tableId: null, updatedAt: serverTimestamp() });
-  });
-}
-
-export async function addTable(existingTables) {
-  const n = existingTables.length + 1;
-  const ref = doc(collection(db, 'tables'));
-  await setDoc(ref, { name: `Mesa ${n}`, capacity: 10, reservedFor: null, occ: 0, createdAt: serverTimestamp() });
-  return ref.id;
-}
-
-export async function removeTable(tableId) {
-  const ref = doc(db, 'tables', tableId);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) return;
-    if ((snap.data().occ || 0) > 0) throw new Error('Esta mesa todavía tiene personas asignadas.');
-    tx.delete(ref);
-  });
-}
-
-export function setTableCapacity(tableId, capacity) {
-  return updateDoc(doc(db, 'tables', tableId), { capacity: Math.max(1, parseInt(capacity, 10) || 1) });
-}
-
-export function setTableReserved(tableId, reservedFor) {
-  return updateDoc(doc(db, 'tables', tableId), { reservedFor: reservedFor || null });
 }

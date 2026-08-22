@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useToast } from '../../hooks/useToast.jsx';
-import { unassignTable, revertCheckIn, revertNoTableNeeded } from '../../firebase/collections.js';
+import { revertCheckIn } from '../../firebase/collections.js';
 import { STATUS_META } from '../../domain/constants.js';
 import './RecentActivity.css';
 
 const toMillis = (ts) => (ts && typeof ts.toMillis === 'function' ? ts.toMillis() : 0);
 
-// "Qué pasó recién" at a glance, with a one-tap undo for the two mistakes
-// that actually happen during a rush: checking in the wrong person, or
-// assigning the wrong table. Selecting a card also opens it in the search
-// detail panel below, for anything that needs more than an undo.
+// "Qué pasó recién" at a glance, with a one-tap undo for the mistake that
+// actually happens during a rush: checking in the wrong person. Selecting a
+// card also opens it in the search detail panel below, for anything that
+// needs more than an undo.
 export default function RecentActivity({ participants, onSelect }) {
   const toast = useToast();
   const [busyId, setBusyId] = useState(null);
@@ -28,16 +28,8 @@ export default function RecentActivity({ participants, onSelect }) {
   async function handleUndo(p) {
     setBusyId(p.id);
     try {
-      if (p.status === 'asignado') {
-        await unassignTable(p.id);
-        toast(`${p.nombre}: se deshizo la asignación de mesa.`);
-      } else if (p.status === 'sin_mesa') {
-        await revertNoTableNeeded(p.id);
-        toast(`${p.nombre}: vuelve a "presente".`);
-      } else if (p.status === 'presente') {
-        await revertCheckIn(p.id);
-        toast(`${p.nombre}: se deshizo el check-in.`);
-      }
+      await revertCheckIn(p.id);
+      toast(`${p.nombre}: se deshizo el check-in.`);
     } catch (err) {
       toast(err.message || 'No se pudo deshacer.', 'error');
     } finally {

@@ -3,22 +3,13 @@ import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
 import { STATUS_META, CATEGORIAS } from '../../domain/constants.js';
-import { recommendTables } from '../../domain/tables.js';
-import {
-  checkIn,
-  assignTable,
-  unassignTable,
-  revertCheckIn,
-  markNoTableNeeded,
-  revertNoTableNeeded,
-  setCategoria,
-} from '../../firebase/collections.js';
+import { checkIn, revertCheckIn, setCategoria } from '../../firebase/collections.js';
 import RecentActivity from './RecentActivity.jsx';
 import './SearchTab.css';
 
 export default function SearchTab() {
   const { state, dispatch } = useStore();
-  const { participants, tables } = useFirestoreData();
+  const { participants } = useFirestoreData();
   const toast = useToast();
   const { search, selectedId } = state;
   const [busy, setBusy] = useState(false);
@@ -38,8 +29,6 @@ export default function SearchTab() {
   }, [participants, search]);
 
   const selected = participants.find((p) => p.id === selectedId) || null;
-  const recs = selected ? recommendTables(selected, tables) : [];
-  const tableName = selected?.tableId ? tables.find((t) => t.id === selected.tableId)?.name : '';
 
   async function handleCheckIn(p) {
     setBusy(true);
@@ -52,55 +41,11 @@ export default function SearchTab() {
       setBusy(false);
     }
   }
-  async function handleAssign(p, tableId, name) {
-    setBusy(true);
-    try {
-      await assignTable(p.id, tableId);
-      toast(`${p.nombre} asignado(a) a ${name}.`);
-    } catch (err) {
-      toast(err.message || 'No se pudo asignar la mesa.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function handleUnassign(p) {
-    setBusy(true);
-    try {
-      await unassignTable(p.id);
-      toast(`${p.nombre} liberado(a) de su mesa.`);
-    } catch (err) {
-      toast(err.message || 'No se pudo liberar la mesa.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
   async function handleRevertCheckIn(p) {
     setBusy(true);
     try {
       await revertCheckIn(p.id);
       toast(`${p.nombre}: check-in deshecho, vuelve a "pendiente".`);
-    } catch (err) {
-      toast(err.message || 'No se pudo deshacer.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function handleNoTableNeeded(p) {
-    setBusy(true);
-    try {
-      await markNoTableNeeded(p.id);
-      toast(`${p.nombre}: marcado(a) sin mesa (staff).`);
-    } catch (err) {
-      toast(err.message || 'No se pudo marcar.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function handleRevertNoTableNeeded(p) {
-    setBusy(true);
-    try {
-      await revertNoTableNeeded(p.id);
-      toast(`${p.nombre}: vuelve a "presente".`);
     } catch (err) {
       toast(err.message || 'No se pudo deshacer.', 'error');
     } finally {
@@ -204,45 +149,9 @@ export default function SearchTab() {
             )}
 
             {selected.status === 'presente' && (
-              <div style={{ marginTop: 16 }}>
-                <div className="search-tab__recs-title">Mesas recomendadas</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {recs.map((r) => (
-                    <button key={r.id} type="button" className="search-tab__rec press" disabled={busy} onClick={() => handleAssign(selected, r.id, r.name)}>
-                      <span className="search-tab__rec-name">{r.name}</span>
-                      <span className="search-tab__rec-left">{r.spacesLeft} espacios</span>
-                    </button>
-                  ))}
-                  {recs.length === 0 && <div className="search-tab__norecs">No hay mesas disponibles para esta categoría.</div>}
-                </div>
-                {selected.categoria === 'Staff' && (
-                  <button type="button" className="search-tab__change press" style={{ marginTop: 10 }} disabled={busy} onClick={() => handleNoTableNeeded(selected)}>
-                    No necesita mesa (staff)
-                  </button>
-                )}
-                <button type="button" className="search-tab__change press" style={{ marginTop: 10 }} disabled={busy} onClick={() => handleRevertCheckIn(selected)}>
-                  Deshacer check-in
-                </button>
-              </div>
-            )}
-
-            {selected.status === 'asignado' && (
-              <div className="search-tab__table-info">
-                <div className="search-tab__meta">Mesa asignada</div>
-                <div className="search-tab__table-name">{tableName}</div>
-                <button type="button" className="search-tab__change press" disabled={busy} onClick={() => handleUnassign(selected)}>
-                  Cambiar de mesa
-                </button>
-              </div>
-            )}
-
-            {selected.status === 'sin_mesa' && (
-              <div className="search-tab__table-info">
-                <div className="search-tab__meta">No necesita mesa — trabaja como staff durante el evento.</div>
-                <button type="button" className="search-tab__change press" disabled={busy} onClick={() => handleRevertNoTableNeeded(selected)}>
-                  Deshacer (sí necesita mesa)
-                </button>
-              </div>
+              <button type="button" className="search-tab__change press" style={{ marginTop: 16 }} disabled={busy} onClick={() => handleRevertCheckIn(selected)}>
+                Deshacer check-in
+              </button>
             )}
           </>
         ) : (

@@ -7,7 +7,6 @@
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { DEFAULT_TABLES } from '../src/domain/constants.js';
 
 // Keep these two in sync with src/firebase/auth.js — duplicated on purpose,
 // the Admin SDK and the client SDK can't share a module cleanly, and it's
@@ -19,18 +18,6 @@ const derivePassword = (pin) => `cjn-${pin}-pin`;
 initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 const auth = getAuth();
-
-async function seedTables() {
-  let created = 0;
-  for (const t of DEFAULT_TABLES) {
-    const ref = db.collection('tables').doc(String(t.id));
-    const snap = await ref.get();
-    if (snap.exists) continue; // never clobber an admin's edits on re-run
-    await ref.set({ name: t.name, capacity: t.capacity, reservedFor: t.reservedFor, occ: 0, createdAt: FieldValue.serverTimestamp() });
-    created++;
-  }
-  console.log(`tables: ${created} created, ${DEFAULT_TABLES.length - created} already existed.`);
-}
 
 async function seedBootstrapAdmin() {
   const username = (process.env.SEED_ADMIN_USERNAME || 'admin').trim().toLowerCase();
@@ -52,6 +39,5 @@ async function seedBootstrapAdmin() {
   console.log(`admin bootstrap: created "${username}" (PIN ${pin}) — change this PIN after first login.`);
 }
 
-await seedTables();
 await seedBootstrapAdmin();
 console.log('\nDone.');

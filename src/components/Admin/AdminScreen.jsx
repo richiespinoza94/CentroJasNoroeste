@@ -5,7 +5,6 @@ import { computeStatCards, computeEstacaDist, computeBarrioDist } from '../../do
 import { DownloadIcon } from '../ui/Icon.jsx';
 import StatCards from '../shared/StatCards.jsx';
 import DistributionBars from '../shared/DistributionBars.jsx';
-import TablesConfig from './TablesConfig.jsx';
 import UsersConfig from './UsersConfig.jsx';
 import ActivitiesConfig from './ActivitiesConfig.jsx';
 import PersonasConfig from './PersonasConfig.jsx';
@@ -15,12 +14,11 @@ const TABS = [
   { id: 'actividades', label: 'Actividades' },
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'personas', label: 'Personas' },
-  { id: 'mesas', label: 'Mesas' },
   { id: 'usuarios', label: 'Usuarios' },
 ];
 
 export default function AdminScreen() {
-  const { participants, tables, activities, personas, activeActivity, loading } = useFirestoreData();
+  const { participants, activities, personas, activeActivity, loading } = useFirestoreData();
   const toast = useToast();
   const [tab, setTab] = useState('dashboard');
   const [downloading, setDownloading] = useState(false);
@@ -33,7 +31,7 @@ export default function AdminScreen() {
     setDownloading(true);
     try {
       const { downloadParticipantsReport } = await import('../../domain/report.js');
-      downloadParticipantsReport(participants, tables);
+      downloadParticipantsReport(participants);
       toast(`Reporte descargado — ${participants.length} registrados en 4 pestañas.`);
     } catch {
       toast('No se pudo generar el reporte.', 'error');
@@ -77,7 +75,7 @@ export default function AdminScreen() {
           </button>
 
           <div className="admin__stats">
-            <StatCards cards={computeStatCards(participants, tables)} />
+            <StatCards cards={computeStatCards(participants)} />
           </div>
           <div className="admin__dist-row">
             <DistributionBars title="Avance por estaca" rows={computeEstacaDist(participants)} color="var(--navy-800)" />
@@ -88,7 +86,6 @@ export default function AdminScreen() {
 
       {tab === 'actividades' && <ActivitiesConfig activities={activities} />}
       {tab === 'personas' && <PersonasConfig personas={personas} participants={participants} activeActivity={activeActivity} />}
-      {tab === 'mesas' && <TablesConfig tables={tables} />}
       {tab === 'usuarios' && <UsersConfig />}
     </div>
   );

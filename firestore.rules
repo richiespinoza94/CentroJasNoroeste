@@ -32,9 +32,6 @@ service cloud.firestore {
     function isSelf(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
-    function onlyAffects(fields) {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
-    }
 
     // Deprecated as of Fase 2 (personas/inscripciones) — kept read-only for
     // staff as a historical backup of pre-migration data. The app no longer
@@ -97,15 +94,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Tables: staff can read and can move people in/out (which only ever
-    // touches `occ`, always inside a transaction — see collections.js).
-    // Everything else (capacity, reservedFor, creating/deleting a table) is
-    // an admin-only operation (PRD §4).
-    match /tables/{tableId} {
-      allow read: if isStaff();
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isStaff() && onlyAffects(['occ']));
+    // Índice público mínimo (Fase 2 — identidad única en el formulario): ID
+    // aleatorio a propósito, nunca el whatsapp — ver nota en collections.js.
+    // Solo nombre completo + estaca, jamás datos de contacto.
+    match /personas_publico/{docId} {
+      function isValidPublicIndexWrite() {
+        let d = request.resource.data;
+        return d.nombreCompleto is string && d.nombreCompleto.size() > 0 && d.nombreCompleto.size() <= 90
+          && d.estaca is string && d.estaca.size() <= 40
+          && d.keys().hasOnly(['nombreCompleto', 'estaca']);
+      }
+      allow read: if true;
+      allow create: if isValidPublicIndexWrite();
+      allow update, delete: if false;
     }
+
+    // Tables (mesas) se sacó del núcleo — ver README/patch de referencia si
+    // se necesita reactivar para un evento tipo cena.
 
     // A username+role an admin reserved, before that person has ever signed
     // in. Publicly readable so the login screen can tell "not registered"

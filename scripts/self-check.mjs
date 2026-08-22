@@ -1,8 +1,7 @@
-// ponytail: one runnable check for the branchy domain logic (validation +
-// table recommendation), not a full test suite. `npm run check` runs this.
+// ponytail: one runnable check for the branchy domain logic (validation),
+// not a full test suite. `npm run check` runs this.
 import assert from 'node:assert/strict';
 import { validateRegistration, validateManual, ageFromDate } from '../src/domain/validation.js';
-import { recommendTables } from '../src/domain/tables.js';
 
 let passed = 0;
 function check(name, fn) {
@@ -86,42 +85,6 @@ check('validateManual requires whatsapp + estaca/barrio, no duplicates', () => {
   assert.ok(
     validateManual({ nombre: 'A', apellidos: 'B', whatsapp: '955123456', estaca: 'Ventanilla', barrio: 'Naval' }, [{ whatsapp: '955123456' }])
   );
-});
-
-// occ is a denormalized counter Firestore keeps in sync inside the
-// assign/unassign transaction (see src/firebase/collections.js) — these
-// fixtures stand in for that field directly, no participants array needed.
-const tables = [
-  { id: 1, name: 'Mesa 1', capacity: 10, reservedFor: null, occ: 0 },
-  { id: 2, name: 'Mesa 2', capacity: 10, reservedFor: null, occ: 0 },
-  { id: 9, name: 'Mesa Líderes', capacity: 8, reservedFor: 'Líder', occ: 0 },
-];
-
-check('recommendTables excludes reserved tables for the wrong category', () => {
-  const staffPerson = { categoria: 'Staff' };
-  const recs = recommendTables(staffPerson, tables);
-  assert.ok(!recs.some((r) => r.id === 9), 'staff should not be recommended the líderes table');
-});
-
-check('recommendTables includes the reserved table for its own category', () => {
-  const liderPerson = { categoria: 'Líder' };
-  const recs = recommendTables(liderPerson, tables);
-  assert.ok(recs.some((r) => r.id === 9));
-});
-
-check('recommendTables sorts tightest-fit first to avoid fragmentation', () => {
-  const partial = [
-    { id: 1, name: 'Mesa 1', capacity: 10, reservedFor: null, occ: 8 }, // 2 left
-    { id: 2, name: 'Mesa 2', capacity: 10, reservedFor: null, occ: 0 }, // 10 left
-  ];
-  const recs = recommendTables({ categoria: 'Miembro' }, partial);
-  assert.equal(recs[0].id, 1, 'tightest fit (2 left) should come before an empty table (10 left)');
-});
-
-check('recommendTables excludes full tables and caps at 3 results', () => {
-  const manyTables = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, name: `T${i}`, capacity: 10, reservedFor: null, occ: 0 }));
-  const recs = recommendTables({ categoria: 'Miembro' }, manyTables);
-  assert.equal(recs.length, 3);
 });
 
 console.log(`\n${passed} checks passed.`);

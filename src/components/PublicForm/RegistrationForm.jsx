@@ -1,13 +1,24 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
-import { registerParticipant } from '../../firebase/collections.js';
+import { registerParticipant, subscribePublicIndex } from '../../firebase/collections.js';
+import logoUrl from '../../assets/logo.png';
 import Field from '../ui/Field.jsx';
 import './RegistrationForm.css';
 
 const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'estacaOtra', 'barrio', 'correo', 'privacidad'];
+
+// Normaliza acentos/mayúsculas — mismo patrón usado en el buscador de
+// Admin → Personas y en el checkin.html del Full Day.
+function normalize(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
 
 export default function RegistrationForm() {
   const { state, dispatch } = useStore();
@@ -21,6 +32,14 @@ export default function RegistrationForm() {
   // the way the other validations are.
   const [serverError, setServerError] = useState('');
 
+  // Índice público mínimo (nombre + estaca, ver collections.js) para avisar
+  // "ya vimos a alguien parecido" — nunca autocompleta, nunca bloquea.
+  const [publicIndex, setPublicIndex] = useState([]);
+  const [matchDismissed, setMatchDismissed] = useState(false);
+  useEffect(() => {
+    subscribePublicIndex().then(setPublicIndex);
+  }, []);
+
   const errors = useMemo(() => validateRegistration(form, []), [form]);
   const showErr = (field) => ((attempted || touched[field]) ? errors[field] : undefined);
 
@@ -33,6 +52,15 @@ export default function RegistrationForm() {
   const barrioOptions = ESTACAS[form.estaca] || [];
   const showBarrioSelect = !!form.estaca && form.estaca !== 'Otra estaca';
   const showBarrioInput = form.estaca === 'Otra estaca';
+
+  // Solo avisa con coincidencia fuerte (nombre completo casi exacto) — el
+  // objetivo es evitar duplicar identidad, no generar ruido con nombres
+  // comunes a medio escribir.
+  const possibleMatch = useMemo(() => {
+    const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
+    if (nombreCompleto.length < 6 || matchDismissed) return null;
+    return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
+  }, [publicIndex, form.nombre, form.apellidos, matchDismissed]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -81,8 +109,8 @@ export default function RegistrationForm() {
   return (
     <form className="reg-form" onSubmit={handleSubmit} noValidate>
       <div className="reg-form__header">
-        <div className="reg-form__logo" aria-hidden="true">
-          JAS
+        <div className="reg-form__logo">
+          <img src={logoUrl} alt="Centro JAS Noroeste" />
         </div>
         <div className="reg-form__title">{activeActivity.nombre}</div>
         <div className="reg-form__badge">
@@ -138,6 +166,18 @@ export default function RegistrationForm() {
             )}
           </Field>
         </div>
+
+        {possibleMatch && (
+          <div className="reg-form__match-hint" role="status">
+            <span>
+              👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). Si eres tú y ya te registraste en otra
+              actividad, usa el mismo número de WhatsApp de esa vez para no duplicar tu registro.
+            </span>
+            <button type="button" className="reg-form__match-dismiss" onClick={() => setMatchDismissed(true)} aria-label="Cerrar aviso">
+              ✕
+            </button>
+          </div>
+        )}
 
         <Field id="fechaNacimiento" label="Fecha de nacimiento" error={showErr('fechaNacimiento')}>
           {(a) => (

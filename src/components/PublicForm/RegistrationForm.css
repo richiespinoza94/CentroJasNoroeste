@@ -34,20 +34,22 @@
 }
 
 .reg-form__logo {
-  width: 76px;
-  height: 76px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   background: var(--white);
-  color: var(--navy-800);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 12px;
   box-shadow: var(--shadow-pop);
-  font-family: var(--font-display);
-  font-weight: 900;
-  font-size: 18px;
-  letter-spacing: 0.5px;
+  padding: 4px;
+  overflow: hidden;
+}
+.reg-form__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .reg-form__title {
@@ -173,6 +175,34 @@
 }
 .reg-form .field__control--invalid {
   background: #fff5f5;
+}
+
+.reg-form__match-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #eef4fd;
+  border-left: 3px solid var(--navy-700);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--navy-800);
+  line-height: 1.5;
+}
+.reg-form__match-hint span {
+  flex: 1;
+}
+.reg-form__match-dismiss {
+  flex-shrink: 0;
+  background: none;
+  color: var(--ink-300);
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  margin: -12px -8px -12px 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .reg-form__consent {
