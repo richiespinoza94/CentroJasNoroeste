@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -106,6 +107,17 @@ export async function setActiveActivity(activityId, allActivities) {
 // whatsapp a propósito: es lo que permite que el formulario, al confirmar
 // "¿eres tú?", enlace directo con esa persona en vez de crear una nueva —
 // ver README/conversación de diseño para el trade-off aceptado.
+// Lectura de un documento exacto (no un listado) — ya permitida por las
+// reglas actuales (`allow get: if true` en personas, pensada justo para
+// este tipo de chequeo de "¿ya existe este número?"). Se usa cuando alguien
+// confirma "¿eres tú?": ya sabemos el whatsapp exacto (viene del ID del
+// documento en personas_publico), así que podemos traer el resto de sus
+// datos para autocompletar el formulario, sin necesitar un permiso nuevo.
+export async function fetchPersonaByWhatsapp(whatsapp) {
+  const snap = await getDoc(doc(db, 'personas', whatsapp));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
 export function subscribePublicIndex() {
   return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() })));
 }

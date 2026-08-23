@@ -3,7 +3,7 @@ import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
-import { registerParticipant, subscribePublicIndex } from '../../firebase/collections.js';
+import { registerParticipant, subscribePublicIndex, fetchPersonaByWhatsapp } from '../../firebase/collections.js';
 import logoUrl from '../../assets/logo.png';
 import Field from '../ui/Field.jsx';
 import './RegistrationForm.css';
@@ -18,6 +18,16 @@ function normalize(s) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+// Muestra los primeros 2 y los últimos 2 dígitos, oculta el resto — así
+// alguien que escribe nombres al azar para "pescar" el número de otra
+// persona (con solo confirmar "¿eres tú?" a un nombre que no es el suyo)
+// no puede leerlo en pantalla. El valor real completo sigue viajando en el
+// registro — esto es solo lo que se ve en el campo.
+function maskWhatsapp(w) {
+  if (!w || w.length !== 9) return w;
+  return `${w.slice(0, 2)}•••••${w.slice(-2)}`;
 }
 
 export default function RegistrationForm() {
@@ -79,19 +89,61 @@ export default function RegistrationForm() {
   // comunes a medio escribir. Deja de avisar en cuanto la persona confirma
   // o descarta, aunque siga editando el nombre después.
   const [matchResolved, setMatchResolved] = useState(false);
+  const [confirmingMatch, setConfirmingMatch] = useState(false);
+  // Una vez confirmado, el WhatsApp queda fijo y enmascarado en pantalla —
+  // ver maskWhatsapp arriba. El resto de los campos SÍ quedan editables:
+  // los datos de un registro anterior pueden estar desactualizados (cambió
+  // de estaca, de correo, etc.), pero el número es lo único que existe
+  // específicamente para evitar duplicar identidad, así que ese no se toca.
+  const [whatsappLocked, setWhatsappLocked] = useState(false);
   const possibleMatch = useMemo(() => {
     const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
     if (nombreCompleto.length < 6 || matchDismissed || matchResolved) return null;
     return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
   }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
 
-  function handleConfirmMatch() {
-    setForm({ whatsapp: possibleMatch.whatsapp });
-    setMatchResolved(true);
-    touch('whatsapp');
+  async function handleConfirmMatch() {
+    setConfirmingMatch(true);
+    try {
+      // El índice público solo trae nombre+estaca (exposición mínima ya
+      // acordada) — para autocompletar todo lo demás hace falta el
+      // documento completo, que ya se puede leer por ID exacto (mismo
+      // permiso que ya existía para el chequeo de duplicados).
+      const persona = await fetchPersonaByWhatsapp(possibleMatch.whatsapp);
+      if (persona) {
+        setForm({
+          nombre: persona.nombre || form.nombre,
+          apellidos: persona.apellidos || form.apellidos,
+          sexo: persona.sexo || form.sexo,
+          fechaNacimiento: persona.fechaNacimiento || form.fechaNacimiento,
+          estaca: persona.estaca || form.estaca,
+          barrio: persona.barrio || form.barrio,
+          correo: persona.correo || form.correo,
+          whatsapp: possibleMatch.whatsapp,
+        });
+      } else {
+        // Muy raro (el índice y personas se escriben juntos), pero por si
+        // acaso el documento ya no existiera, al menos el número no se pierde.
+        setForm({ whatsapp: possibleMatch.whatsapp });
+      }
+      setWhatsappLocked(true);
+      setMatchResolved(true);
+      touch('whatsapp');
+    } finally {
+      setConfirmingMatch(false);
+    }
   }
   function handleDenyMatch() {
     setMatchDismissed(true);
+  }
+  // Por si alguien solo estaba probando el formulario y confirmó un match
+  // que no era el suyo — vuelve a empezar de cero, con el número editable
+  // de nuevo, en vez de quedar atascado con datos de otra persona.
+  function handleStartOver() {
+    dispatch({ type: 'RESET_FORM' });
+    setWhatsappLocked(false);
+    setMatchResolved(false);
+    setMatchDismissed(false);
   }
 
   async function handleSubmit(e) {
@@ -212,10 +264,10 @@ export default function RegistrationForm() {
               👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). ¿Eres tú?
             </div>
             <div className="reg-form__match-actions">
-              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch}>
-                Sí, soy yo
+              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch} disabled={confirmingMatch}>
+                {confirmingMatch ? 'Un momento…' : 'Sí, soy yo'}
               </button>
-              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch}>
+              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch} disabled={confirmingMatch}>
                 No, es otra persona
               </button>
             </div>
@@ -224,7 +276,10 @@ export default function RegistrationForm() {
 
         {matchResolved && (
           <div className="reg-form__match-confirmed" role="status">
-            ✓ Usamos tu WhatsApp de tu registro anterior — así no quedas duplicado(a).
+            <span>✓ Completamos tus datos de tu registro anterior — revísalos y corrige lo que haga falta. Tu WhatsApp queda fijo para no duplicarte.</span>
+            <button type="button" className="reg-form__match-restart" onClick={handleStartOver}>
+              ¿No eras tú? Empezar de nuevo
+            </button>
           </div>
         )}
 
@@ -278,11 +333,14 @@ export default function RegistrationForm() {
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
-                value={form.whatsapp}
-                onChange={(e) => setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                value={whatsappLocked ? maskWhatsapp(form.whatsapp) : form.whatsapp}
+                onChange={(e) => !whatsappLocked && setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
                 onBlur={() => touch('whatsapp')}
                 placeholder="9XXXXXXXX"
                 maxLength={9}
+                readOnly={whatsappLocked}
+                aria-readonly={whatsappLocked}
+                title={whatsappLocked ? 'Confirmado con tu registro anterior — toca "Empezar de nuevo" arriba si no eras tú' : undefined}
               />
             )}
           </Field>

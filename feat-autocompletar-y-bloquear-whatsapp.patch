@@ -1,0 +1,218 @@
+diff --git a/src/components/PublicForm/RegistrationForm.css b/src/components/PublicForm/RegistrationForm.css
+index da2137d..ba02315 100644
+--- a/src/components/PublicForm/RegistrationForm.css
++++ b/src/components/PublicForm/RegistrationForm.css
+@@ -173,6 +173,16 @@
+   border-color: var(--navy-800);
+   box-shadow: 0 0 0 3px rgba(26, 58, 107, 0.12);
+ }
++.reg-form .field__control[readonly] {
++  background: var(--line-100);
++  color: var(--ink-500);
++  cursor: not-allowed;
++  letter-spacing: 1px;
++}
++.reg-form .field__control[readonly]:focus {
++  box-shadow: none;
++  border-color: var(--line-200);
++}
+ .reg-form .field__control--invalid {
+   background: #fff5f5;
+ }
+@@ -212,6 +222,9 @@
+ }
+ 
+ .reg-form__match-confirmed {
++  display: flex;
++  flex-direction: column;
++  gap: 8px;
+   background: var(--success-bg);
+   border-left: 3px solid var(--success-500);
+   border-radius: 0 8px 8px 0;
+@@ -220,6 +233,16 @@
+   color: var(--success-fg);
+   line-height: 1.5;
+ }
++.reg-form__match-restart {
++  align-self: flex-start;
++  background: none;
++  color: var(--success-fg);
++  text-decoration: underline;
++  font-size: 11.5px;
++  font-weight: 600;
++  min-height: var(--touch-min);
++  padding: 0;
++}
+ 
+ .reg-form__consent {
+   display: flex;
+diff --git a/src/components/PublicForm/RegistrationForm.jsx b/src/components/PublicForm/RegistrationForm.jsx
+index cd3c3f2..ac87a49 100644
+--- a/src/components/PublicForm/RegistrationForm.jsx
++++ b/src/components/PublicForm/RegistrationForm.jsx
+@@ -3,7 +3,7 @@ import { useStore } from '../../state/store.jsx';
+ import { useFirestoreData } from '../../firebase/DataProvider.jsx';
+ import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
+ import { validateRegistration } from '../../domain/validation.js';
+-import { registerParticipant, subscribePublicIndex } from '../../firebase/collections.js';
++import { registerParticipant, subscribePublicIndex, fetchPersonaByWhatsapp } from '../../firebase/collections.js';
+ import logoUrl from '../../assets/logo.png';
+ import Field from '../ui/Field.jsx';
+ import './RegistrationForm.css';
+@@ -20,6 +20,16 @@ function normalize(s) {
+     .trim();
+ }
+ 
++// Muestra los primeros 2 y los últimos 2 dígitos, oculta el resto — así
++// alguien que escribe nombres al azar para "pescar" el número de otra
++// persona (con solo confirmar "¿eres tú?" a un nombre que no es el suyo)
++// no puede leerlo en pantalla. El valor real completo sigue viajando en el
++// registro — esto es solo lo que se ve en el campo.
++function maskWhatsapp(w) {
++  if (!w || w.length !== 9) return w;
++  return `${w.slice(0, 2)}•••••${w.slice(-2)}`;
++}
++
+ export default function RegistrationForm() {
+   const { state, dispatch } = useStore();
+   const { activeActivity, activities, activitiesLoading } = useFirestoreData();
+@@ -79,20 +89,62 @@ export default function RegistrationForm() {
+   // comunes a medio escribir. Deja de avisar en cuanto la persona confirma
+   // o descarta, aunque siga editando el nombre después.
+   const [matchResolved, setMatchResolved] = useState(false);
++  const [confirmingMatch, setConfirmingMatch] = useState(false);
++  // Una vez confirmado, el WhatsApp queda fijo y enmascarado en pantalla —
++  // ver maskWhatsapp arriba. El resto de los campos SÍ quedan editables:
++  // los datos de un registro anterior pueden estar desactualizados (cambió
++  // de estaca, de correo, etc.), pero el número es lo único que existe
++  // específicamente para evitar duplicar identidad, así que ese no se toca.
++  const [whatsappLocked, setWhatsappLocked] = useState(false);
+   const possibleMatch = useMemo(() => {
+     const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
+     if (nombreCompleto.length < 6 || matchDismissed || matchResolved) return null;
+     return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
+   }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
+ 
+-  function handleConfirmMatch() {
+-    setForm({ whatsapp: possibleMatch.whatsapp });
+-    setMatchResolved(true);
+-    touch('whatsapp');
++  async function handleConfirmMatch() {
++    setConfirmingMatch(true);
++    try {
++      // El índice público solo trae nombre+estaca (exposición mínima ya
++      // acordada) — para autocompletar todo lo demás hace falta el
++      // documento completo, que ya se puede leer por ID exacto (mismo
++      // permiso que ya existía para el chequeo de duplicados).
++      const persona = await fetchPersonaByWhatsapp(possibleMatch.whatsapp);
++      if (persona) {
++        setForm({
++          nombre: persona.nombre || form.nombre,
++          apellidos: persona.apellidos || form.apellidos,
++          sexo: persona.sexo || form.sexo,
++          fechaNacimiento: persona.fechaNacimiento || form.fechaNacimiento,
++          estaca: persona.estaca || form.estaca,
++          barrio: persona.barrio || form.barrio,
++          correo: persona.correo || form.correo,
++          whatsapp: possibleMatch.whatsapp,
++        });
++      } else {
++        // Muy raro (el índice y personas se escriben juntos), pero por si
++        // acaso el documento ya no existiera, al menos el número no se pierde.
++        setForm({ whatsapp: possibleMatch.whatsapp });
++      }
++      setWhatsappLocked(true);
++      setMatchResolved(true);
++      touch('whatsapp');
++    } finally {
++      setConfirmingMatch(false);
++    }
+   }
+   function handleDenyMatch() {
+     setMatchDismissed(true);
+   }
++  // Por si alguien solo estaba probando el formulario y confirmó un match
++  // que no era el suyo — vuelve a empezar de cero, con el número editable
++  // de nuevo, en vez de quedar atascado con datos de otra persona.
++  function handleStartOver() {
++    dispatch({ type: 'RESET_FORM' });
++    setWhatsappLocked(false);
++    setMatchResolved(false);
++    setMatchDismissed(false);
++  }
+ 
+   async function handleSubmit(e) {
+     e.preventDefault();
+@@ -212,10 +264,10 @@ export default function RegistrationForm() {
+               👋 Ya vimos a alguien parecido: <strong>{possibleMatch.nombreCompleto}</strong> ({possibleMatch.estaca}). ¿Eres tú?
+             </div>
+             <div className="reg-form__match-actions">
+-              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch}>
+-                Sí, soy yo
++              <button type="button" className="reg-form__match-yes press" onClick={handleConfirmMatch} disabled={confirmingMatch}>
++                {confirmingMatch ? 'Un momento…' : 'Sí, soy yo'}
+               </button>
+-              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch}>
++              <button type="button" className="reg-form__match-no press" onClick={handleDenyMatch} disabled={confirmingMatch}>
+                 No, es otra persona
+               </button>
+             </div>
+@@ -224,7 +276,10 @@ export default function RegistrationForm() {
+ 
+         {matchResolved && (
+           <div className="reg-form__match-confirmed" role="status">
+-            ✓ Usamos tu WhatsApp de tu registro anterior — así no quedas duplicado(a).
++            <span>✓ Completamos tus datos de tu registro anterior — revísalos y corrige lo que haga falta. Tu WhatsApp queda fijo para no duplicarte.</span>
++            <button type="button" className="reg-form__match-restart" onClick={handleStartOver}>
++              ¿No eras tú? Empezar de nuevo
++            </button>
+           </div>
+         )}
+ 
+@@ -278,11 +333,14 @@ export default function RegistrationForm() {
+                 type="tel"
+                 inputMode="numeric"
+                 autoComplete="tel-national"
+-                value={form.whatsapp}
+-                onChange={(e) => setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
++                value={whatsappLocked ? maskWhatsapp(form.whatsapp) : form.whatsapp}
++                onChange={(e) => !whatsappLocked && setForm({ whatsapp: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                 onBlur={() => touch('whatsapp')}
+                 placeholder="9XXXXXXXX"
+                 maxLength={9}
++                readOnly={whatsappLocked}
++                aria-readonly={whatsappLocked}
++                title={whatsappLocked ? 'Confirmado con tu registro anterior — toca "Empezar de nuevo" arriba si no eras tú' : undefined}
+               />
+             )}
+           </Field>
+diff --git a/src/firebase/collections.js b/src/firebase/collections.js
+index 7364c2e..4b2e015 100644
+--- a/src/firebase/collections.js
++++ b/src/firebase/collections.js
+@@ -1,6 +1,7 @@
+ import {
+   collection,
+   doc,
++  getDoc,
+   getDocs,
+   onSnapshot,
+   orderBy,
+@@ -106,6 +107,17 @@ export async function setActiveActivity(activityId, allActivities) {
+ // whatsapp a propósito: es lo que permite que el formulario, al confirmar
+ // "¿eres tú?", enlace directo con esa persona en vez de crear una nueva —
+ // ver README/conversación de diseño para el trade-off aceptado.
++// Lectura de un documento exacto (no un listado) — ya permitida por las
++// reglas actuales (`allow get: if true` en personas, pensada justo para
++// este tipo de chequeo de "¿ya existe este número?"). Se usa cuando alguien
++// confirma "¿eres tú?": ya sabemos el whatsapp exacto (viene del ID del
++// documento en personas_publico), así que podemos traer el resto de sus
++// datos para autocompletar el formulario, sin necesitar un permiso nuevo.
++export async function fetchPersonaByWhatsapp(whatsapp) {
++  const snap = await getDoc(doc(db, 'personas', whatsapp));
++  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
++}
++
+ export function subscribePublicIndex() {
+   return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() })));
+ }
