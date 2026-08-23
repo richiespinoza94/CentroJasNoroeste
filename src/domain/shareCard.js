@@ -66,8 +66,12 @@ function wrapAndClamp(ctx, text, maxWidth, maxLines) {
       }
     }
   }
-  if (!truncated && lines.length < maxLines && current) lines.push(current);
-  else if (truncated) current = '';
+  if (!truncated && lines.length < maxLines && current) {
+    lines.push(current);
+    current = '';
+  } else if (truncated) {
+    current = '';
+  }
 
   if (lines.length === maxLines && (truncated || current)) {
     let last = lines[maxLines - 1];
@@ -227,4 +231,155 @@ function drawShareCard(ctx, { activity, qrImage, logoImage, size = 1080 }) {
   }
 }
 
-export { drawShareCard };
+/**
+ * Afiche A4 (1240×1754 ≈ proporción 210×297mm) para descargar/imprimir, en
+ * el mismo <canvas> que la tarjeta compartible — a propósito, no por CSS de
+ * impresión. Android "Guardar como PDF" no respeta de forma confiable
+ * `print-color-adjust`, así que el fondo navy/dorado desaparecía al
+ * descargar (quedaba solo blanco) aunque en Chrome de escritorio se viera
+ * bien. Un canvas rasteriza los colores directo en los píxeles — no hay
+ * nada que el sistema operativo pueda "no respetar".
+ */
+function drawPrintFlyer(ctx, { activity, qrImage, logoImage, formUrl, width = 1240, height = 1754 }) {
+  const W = width;
+  const H = height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+
+  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H);
+  bg.addColorStop(0, '#14284f');
+  bg.addColorStop(0.55, '#1a3a6b');
+  bg.addColorStop(1, '#234a86');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow1 = ctx.createRadialGradient(W * 0.1, H * 0.04, 0, W * 0.1, H * 0.04, W * 0.5);
+  glow1.addColorStop(0, 'rgba(245,166,35,0.16)');
+  glow1.addColorStop(1, 'rgba(245,166,35,0)');
+  ctx.fillStyle = glow1;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(245,166,35,0.14)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(W * 1.05, H * 1.0, W * 0.32, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const ruleGrad = ctx.createLinearGradient(W * 0.08, 0, W * 0.92, 0);
+  ruleGrad.addColorStop(0, '#f5a623');
+  ruleGrad.addColorStop(1, '#f7c948');
+  ctx.fillStyle = ruleGrad;
+  ctx.fillRect(W * 0.08, H * 0.028, W * 0.84, H * 0.0025);
+
+  let y = H * 0.065;
+
+  const logoR = W * 0.075;
+  const logoCx = W / 2;
+  const logoCy = y + logoR;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(logoCx, logoCy, logoR, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = W * 0.018;
+  ctx.shadowOffsetY = W * 0.007;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.clip();
+  const pad = logoR * 0.12;
+  if (logoImage) ctx.drawImage(logoImage, logoCx - logoR + pad, logoCy - logoR + pad, (logoR - pad) * 2, (logoR - pad) * 2);
+  ctx.restore();
+  y = logoCy + logoR + H * 0.02;
+
+  ctx.fillStyle = '#f7c948';
+  ctx.font = `800 ${W * 0.017}px Nunito, sans-serif`;
+  ctx.fillText('C E N T R O   J A S   N O R O E S T E', W / 2, y);
+  y += H * 0.032;
+
+  const nameLen = activity.nombre.length;
+  const nameFontPx = nameLen > 42 ? W * 0.034 : nameLen > 26 ? W * 0.04 : W * 0.046;
+  ctx.font = `900 ${nameFontPx}px Nunito, sans-serif`;
+  ctx.fillStyle = '#fff';
+  const nameLines = wrapAndClamp(ctx, activity.nombre, W * 0.84, 2);
+  for (const line of nameLines) {
+    y += nameFontPx * 0.62;
+    ctx.fillText(line, W / 2, y);
+    y += nameFontPx * 0.5;
+  }
+  y += H * 0.016;
+
+  const badgeText = `${activity.fecha}${activity.lugar ? ` · ${activity.lugar}` : ''}`;
+  ctx.font = `800 ${W * 0.018}px Nunito, sans-serif`;
+  const badgeTextClamped = ellipsize(ctx, badgeText, W * 0.68);
+  const badgeTextW = ctx.measureText(badgeTextClamped).width;
+  const badgeW = badgeTextW + W * 0.07;
+  const badgeH = H * 0.026;
+  const badgeGrad = ctx.createLinearGradient(W / 2 - badgeW / 2, 0, W / 2 + badgeW / 2, 0);
+  badgeGrad.addColorStop(0, '#f5a623');
+  badgeGrad.addColorStop(1, '#f7c948');
+  ctx.fillStyle = badgeGrad;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - badgeW / 2, y, badgeW, badgeH, badgeH / 2);
+  ctx.fill();
+  ctx.fillStyle = '#14284f';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(badgeTextClamped, W / 2, y + badgeH / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+  y += badgeH + H * 0.024;
+
+  // El footer se mide primero — el QR se lleva lo que sobra, nunca al revés
+  // (mismo principio que ya evitó el desborde a una segunda página en el
+  // afiche anterior).
+  const footerH = H * 0.02 + (activity.anfitrion ? H * 0.02 : 0) + H * 0.024 + H * 0.02;
+
+  const cardTop = y;
+  const cardBottom = H - footerH;
+  const cardPad = W * 0.035;
+  const instrH = H * 0.06;
+  const qrSize = Math.min(cardBottom - cardTop - cardPad * 2 - instrH, W * 0.72);
+  const cardW = qrSize + cardPad * 2;
+  const cardH = qrSize + cardPad * 2 + instrH;
+  const cardX = W / 2 - cardW / 2;
+  const cardY = cardTop + (cardBottom - cardTop - cardH) / 2; // centrado en el espacio disponible, no pegado arriba
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = W * 0.025;
+  ctx.shadowOffsetY = W * 0.01;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, W * 0.018);
+  ctx.fill();
+  ctx.restore();
+
+  if (qrImage) ctx.drawImage(qrImage, cardX + cardPad, cardY + cardPad, qrSize, qrSize);
+
+  ctx.fillStyle = '#1a3a6b';
+  ctx.font = `800 ${W * 0.021}px Nunito, sans-serif`;
+  ctx.fillText('📲 Escanea para inscribirte', W / 2, cardY + cardPad + qrSize + H * 0.028);
+  ctx.fillStyle = '#6b7a99';
+  ctx.font = `400 ${W * 0.015}px Lato, sans-serif`;
+  ctx.fillText('Abre la cámara de tu celular y apunta al código', W / 2, cardY + cardPad + qrSize + H * 0.047);
+
+  y = H - footerH + H * 0.02;
+
+  ctx.fillStyle = '#fff';
+  ctx.font = `800 ${W * 0.015}px Nunito, sans-serif`;
+  ctx.fillText('VENTANILLA  ·  MIRAMAR  ·  PUENTE PIEDRA', W / 2, y);
+
+  if (activity.anfitrion) {
+    y += H * 0.02;
+    ctx.fillStyle = 'rgba(255,255,255,0.62)';
+    ctx.font = `400 ${W * 0.014}px Lato, sans-serif`;
+    ctx.fillText(ellipsize(ctx, activity.anfitrion, W * 0.72), W / 2, y);
+  }
+
+  if (formUrl) {
+    y += H * 0.024;
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+    ctx.font = `400 ${W * 0.0125}px Lato, sans-serif`;
+    ctx.fillText(ellipsize(ctx, `¿No puedes escanear? Ingresa a: ${formUrl}`, W * 0.85), W / 2, y);
+  }
+}
+
+export { drawShareCard, drawPrintFlyer };

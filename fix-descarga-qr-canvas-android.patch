@@ -1,0 +1,480 @@
+diff --git a/src/components/shared/ActivityQRModal.jsx b/src/components/shared/ActivityQRModal.jsx
+index cdc1b84..b6547c8 100644
+--- a/src/components/shared/ActivityQRModal.jsx
++++ b/src/components/shared/ActivityQRModal.jsx
+@@ -1,7 +1,7 @@
+ import { useEffect, useRef, useState } from 'react';
+ import Modal, { useModalClose } from '../ui/Modal.jsx';
+ import { useToast } from '../../hooks/useToast.jsx';
+-import { drawShareCard } from '../../domain/shareCard.js';
++import { drawShareCard, drawPrintFlyer } from '../../domain/shareCard.js';
+ import { ShareIcon } from '../ui/Icon.jsx';
+ import logoUrl from '../../assets/logo.png';
+ import nunito800 from '@fontsource/nunito/files/nunito-latin-800-normal.woff2?url';
+@@ -13,128 +13,27 @@ function registrationUrl(activityId) {
+   return `${window.location.origin}${window.location.pathname}?actividad=${activityId}`;
+ }
+ 
+-/**
+- * Página lista para imprimir/guardar como PDF — mismo patrón que ya probó
+- * el checkin.html del Full Day para "imprimir grupos": una ventana nueva
+- * con HTML autocontenido + window.print(). El navegador ya ofrece "Guardar
+- * como PDF" en el diálogo de impresión, así que no hace falta agregar una
+- * librería de PDF solo para esto.
+- *
+- * Diseño a una sola hoja A4, a sangre completa, con los mismos tokens de
+- * color/tipografía que el resto de la app (navy 900→700, dorado 500,
+- * Nunito/Lato). Estructura en CSS Grid a propósito (`auto 1fr auto`) en vez
+- * de flex con alturas intrínsecas — así el total SIEMPRE suma exactamente
+- * 297mm sin importar cuánto midan el header o el footer, eliminando el
+- * riesgo de desborde a una segunda página en blanco.
+- *
+- * Las fuentes se empaquetan con la app (@fontsource) en vez de pedirlas a
+- * Google Fonts en el momento — en datos móviles, en medio de un evento,
+- * esa descarga puede tardar o fallar; si eso pasa, el navegador calcula el
+- * layout con la fuente de respaldo del sistema (más ancha/alta) y se vuelve
+- * a desbordar a una segunda página, el mismo bug original. Empaquetada, la
+- * fuente ya está en el dispositivo desde que se cargó la app — cero espera,
+- * cero dependencia de la red en el momento de imprimir.
+- */
+-function buildPrintHTML(activity, qrDataUrl, formUrl) {
+-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR — ${activity.nombre}</title>
+-  <style>
+-    @font-face{ font-family:'Nunito'; font-weight:800; font-display:block; src:url('${nunito800}') format('woff2'); }
+-    @font-face{ font-family:'Nunito'; font-weight:900; font-display:block; src:url('${nunito900}') format('woff2'); }
+-    @font-face{ font-family:'Lato'; font-weight:400; font-display:block; src:url('${lato400}') format('woff2'); }
+-    *{box-sizing:border-box;margin:0;padding:0;}
+-    @page{size:A4;margin:0;}
+-    html,body{width:210mm;height:297mm;overflow:hidden;} /* overflow:hidden = red de seguridad: si algo se pasa por milímetros, se recorta en vez de crear una página 2 en blanco */
+-    body{
+-      font-family:'Lato',sans-serif;
+-      background:
+-        radial-gradient(circle at 12% 6%, rgba(245,166,35,0.18), transparent 42%),
+-        radial-gradient(circle at 90% 96%, rgba(245,166,35,0.14), transparent 40%),
+-        linear-gradient(155deg, #14284f 0%, #1a3a6b 55%, #234a86 100%);
+-      color:#fff;
+-      display:grid;
+-      grid-template-rows:auto 1fr auto;
+-      justify-items:center;
+-      padding:13mm 16mm;
+-      position:relative;
+-    }
+-    body::before, body::after{
+-      content:"";
+-      position:absolute;
+-      width:130mm;height:130mm;
+-      border:1.5px solid rgba(245,166,35,0.16);
+-      border-radius:50%;
+-    }
+-    body::before{ top:-65mm; left:-50mm; }
+-    body::after{ bottom:-70mm; right:-55mm; }
+-
+-    .rule{ width:100%; height:3px; background:linear-gradient(90deg,#f5a623,#f7c948); border-radius:2px; }
+-
+-    .header{ text-align:center; width:100%; position:relative; z-index:1; padding-top:6mm; }
+-    .logo{ width:28mm; height:28mm; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; margin:0 auto 5mm; box-shadow:0 5mm 11mm rgba(0,0,0,0.35); padding:1.8mm; }
+-    .logo img{ width:100%; height:100%; object-fit:contain; }
+-    .eyebrow{ font-family:'Nunito',sans-serif; font-size:10.5px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:#f7c948; margin-bottom:2.5mm; }
+-    /* Máximo 2 líneas garantizado (line-clamp), sin importar qué tan largo
+-       sea el nombre real de la actividad — así el header nunca puede crecer
+-       sin límite y robarle espacio al QR. word-break evita que una palabra
+-       sola sin espacios (rara en español, pero posible en una URL pegada
+-       por error) rompa el ancho. */
+-    h1{
+-      font-family:'Nunito',sans-serif; font-weight:900; line-height:1.15; max-width:165mm; margin:0 auto;
+-      font-size:${activity.nombre.length > 42 ? '24px' : activity.nombre.length > 26 ? '28px' : '32px'};
+-      display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden;
+-      word-break:break-word; overflow-wrap:break-word;
+-    }
+-    /* Fecha+lugar en una sola línea con elipsis — un "lugar" largo (una
+-       dirección completa, por ejemplo) no debe poder ensanchar el badge
+-       más allá del ancho de la hoja ni partirlo en varias líneas. */
+-    .badge{
+-      display:inline-flex; align-items:center; gap:2mm; background:linear-gradient(90deg,#f5a623,#f7c948); color:#14284f;
+-      font-family:'Nunito',sans-serif; font-size:12.5px; font-weight:800; padding:2.3mm 7mm; border-radius:99px; margin-top:5mm;
+-      max-width:170mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+-    }
+-
+-    .qr-stage{ display:flex; align-items:center; justify-content:center; width:100%; position:relative; z-index:1; min-height:0; }
+-    .qr-card{ background:#fff; border-radius:9mm; padding:9mm; box-shadow:0 9mm 24mm rgba(0,0,0,0.4); display:flex; flex-direction:column; align-items:center; }
+-    .qr-card img{ width:92mm; height:92mm; display:block; }
+-    .qr-card .instr{ font-family:'Nunito',sans-serif; font-weight:800; font-size:16px; color:#1a3a6b; margin-top:5.5mm; }
+-    .qr-card .instr-sub{ font-size:11px; color:#6b7a99; margin-top:1.5mm; }
+-
+-    .footer{ text-align:center; width:100%; position:relative; z-index:1; padding-bottom:5mm; }
+-    .footer-title{ font-family:'Nunito',sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; }
+-    /* Mismo criterio: el nombre del anfitrión puede ser cualquier texto que
+-       alguien escriba en Admin → Actividades — una línea con elipsis, nunca
+-       varias líneas que empujen el layout. */
+-    .footer-sub{ font-size:10px; color:rgba(255,255,255,0.62); margin-top:1.5mm; max-width:170mm; margin-left:auto; margin-right:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+-    .footer-url{ font-size:9.5px; color:rgba(255,255,255,0.4); margin-top:3mm; max-width:170mm; margin-left:auto; margin-right:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+-
+-    @media print{ body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+-  </style></head><body>
+-    <div class="header">
+-      <div class="rule" style="margin-bottom:8mm;"></div>
+-      <div class="logo"><img src="${logoUrl}" alt="Centro JAS Noroeste"/></div>
+-      <div class="eyebrow">Centro JAS Noroeste</div>
+-      <h1>${activity.nombre}</h1>
+-      <div class="badge">🗓️ ${activity.fecha}${activity.lugar ? ` · ${activity.lugar}` : ''}</div>
+-    </div>
+-
+-    <div class="qr-stage">
+-      <div class="qr-card">
+-        <img src="${qrDataUrl}" alt="Código QR de inscripción"/>
+-        <div class="instr">📲 Escanea para inscribirte</div>
+-        <div class="instr-sub">Abre la cámara de tu celular y apunta al código</div>
+-      </div>
+-    </div>
+-
+-    <div class="footer">
+-      <div class="footer-title">Ventanilla · Miramar · Puente Piedra</div>
+-      ${activity.anfitrion ? `<div class="footer-sub">${activity.anfitrion}</div>` : ''}
+-      <div class="footer-url">¿No puedes escanear? Ingresa a: ${formUrl}</div>
+-      <div class="rule" style="margin-top:6mm;"></div>
+-    </div>
+-  </body></html>`;
++// El resto de la app carga Nunito hasta el peso 800 (ver index.html) — el
++// título del QR necesita el 900 ("black"), que nadie más pide. Sin
++// registrarlo explícito, el navegador podría resolverlo a cualquier peso
++// disponible al dibujar en <canvas> sin avisar (a diferencia del CSS normal,
++// que sí hace "negrita sintética" de forma más predecible). Se registran
++// los tres pesos exactos que se usan, desde los mismos archivos ya
++// empaquetados con la app — no hay segunda fuente de verdad que se pueda
++// desincronizar.
++let fontsReadyPromise = null;
++function ensureCanvasFonts() {
++  if (!fontsReadyPromise) {
++    fontsReadyPromise = Promise.all([
++      new FontFace('Nunito', `url(${nunito800})`, { weight: '800' }).load().then((f) => document.fonts.add(f)),
++      new FontFace('Nunito', `url(${nunito900})`, { weight: '900' }).load().then((f) => document.fonts.add(f)),
++      new FontFace('Lato', `url(${lato400})`, { weight: '400' }).load().then((f) => document.fonts.add(f)),
++    ]);
++  }
++  return fontsReadyPromise;
+ }
+ 
+-function QRModalBody({ activity, qrDataUrl, sharing, onShare, onShowFullscreen, onPrint }) {
++function QRModalBody({ activity, qrDataUrl, sharing, downloading, onShare, onDownload, onShowFullscreen }) {
+   const requestClose = useModalClose();
+   return (
+     <div className="qr-modal">
+@@ -155,8 +54,8 @@ function QRModalBody({ activity, qrDataUrl, sharing, onShare, onShowFullscreen,
+         <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={onShowFullscreen}>
+           Pantalla completa
+         </button>
+-        <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl} onClick={onPrint}>
+-          Descargar / Imprimir
++        <button type="button" className="qr-modal__btn press" disabled={!qrDataUrl || downloading} onClick={onDownload}>
++          {downloading ? 'Generando…' : 'Descargar afiche'}
+         </button>
+       </div>
+       <button type="button" className="qr-modal__close press" onClick={() => requestClose()}>
+@@ -171,6 +70,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+   const [qrDataUrl, setQrDataUrl] = useState(null);
+   const [fullscreen, setFullscreen] = useState(false);
+   const [sharing, setSharing] = useState(false);
++  const [downloading, setDownloading] = useState(false);
+   const cancelled = useRef(false);
+ 
+   useEffect(() => {
+@@ -195,13 +95,23 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+     });
+   }
+ 
+-  function fileNameSlug() {
+-    return `qr-${activity.nombre
++  function fileNameSlug(suffix) {
++    const base = activity.nombre
+       .normalize('NFD')
+       .replace(/[\u0300-\u036f]/g, '')
+       .toLowerCase()
+       .replace(/[^a-z0-9]+/g, '-')
+-      .replace(/(^-|-$)/g, '')}.png`;
++      .replace(/(^-|-$)/g, '');
++    return `qr-${base}${suffix ? `-${suffix}` : ''}.png`;
++  }
++
++  function triggerDownload(blob, filename) {
++    const url = URL.createObjectURL(blob);
++    const a = document.createElement('a');
++    a.href = url;
++    a.download = filename;
++    a.click();
++    setTimeout(() => URL.revokeObjectURL(url), 1000);
+   }
+ 
+   /**
+@@ -220,8 +130,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+     if (!qrDataUrl || sharing) return;
+     setSharing(true);
+     try {
+-      const [logoImage, qrImage] = await Promise.all([loadImageEl(logoUrl), loadImageEl(qrDataUrl)]);
+-      if (document.fonts?.ready) await document.fonts.ready;
++      const [logoImage, qrImage] = await Promise.all([loadImageEl(logoUrl), loadImageEl(qrDataUrl), ensureCanvasFonts()]);
+ 
+       const canvas = document.createElement('canvas');
+       canvas.width = 1080;
+@@ -257,39 +166,39 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+     }
+   }
+ 
+-  function triggerDownload(blob, filename) {
+-    const url = URL.createObjectURL(blob);
+-    const a = document.createElement('a');
+-    a.href = url;
+-    a.download = filename;
+-    a.click();
+-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+-  }
++  /**
++   * Descarga el afiche A4 como imagen — en vez de una página HTML lista
++   * para "Guardar como PDF" (que era el diseño original). En Android, el
++   * sistema de impresión/guardado-como-PDF no respeta de forma confiable
++   * el CSS que fuerza a imprimir colores de fondo (print-color-adjust): el
++   * navy y el dorado desaparecían y quedaba solo blanco, aunque en Chrome
++   * de escritorio se viera perfecto. Un <canvas> rasteriza los colores
++   * directo en los píxeles de la imagen — no depende de que ningún sistema
++   * operativo "respete" nada. Para imprimir en papel de verdad, la persona
++   * abre la imagen descargada desde su galería/Fotos e imprime desde ahí
++   * (esa ruta sí usa el motor de impresión de imágenes del sistema, que es
++   * confiable — el problema era específico de imprimir HTML con CSS).
++   */
++  async function handleDownload() {
++    if (!qrDataUrl || downloading) return;
++    setDownloading(true);
++    try {
++      const [logoImage, qrImage] = await Promise.all([loadImageEl(logoUrl), loadImageEl(qrDataUrl), ensureCanvasFonts()]);
+ 
+-  function handlePrint() {
+-    if (!qrDataUrl) return;
+-    const w = window.open('', '_blank', 'width=560,height=780');
+-    if (!w) return;
+-    w.document.write(buildPrintHTML(activity, qrDataUrl, registrationUrl(activity.id)));
+-    w.document.close();
+-    w.focus();
++      const canvas = document.createElement('canvas');
++      canvas.width = 1240;
++      canvas.height = 1754;
++      const ctx = canvas.getContext('2d');
++      drawPrintFlyer(ctx, { activity, qrImage, logoImage, formUrl: registrationUrl(activity.id), width: 1240, height: 1754 });
+ 
+-    // Imprimir antes de que Nunito termine de descargarse usa la fuente de
+-    // respaldo del sistema para calcular el layout — más ancha/alta que
+-    // Nunito, lo suficiente para desbordar la hoja y crear una página 2 en
+-    // blanco. document.fonts.ready espera a que la fuente esté realmente
+-    // lista; el setTimeout es solo una red de seguridad por si ese API no
+-    // resuelve en algún navegador viejo.
+-    let printed = false;
+-    const doPrint = () => {
+-      if (printed) return;
+-      printed = true;
+-      w.print();
+-    };
+-    if (w.document.fonts?.ready) {
+-      w.document.fonts.ready.then(doPrint).catch(doPrint);
++      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
++      if (!blob) throw new Error('No se pudo generar la imagen.');
++      triggerDownload(blob, fileNameSlug('afiche'));
++    } catch {
++      toast('No se pudo generar el afiche. Intenta de nuevo.', 'error');
++    } finally {
++      setDownloading(false);
+     }
+-    setTimeout(doPrint, 1200);
+   }
+ 
+   if (fullscreen && qrDataUrl) {
+@@ -306,7 +215,15 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
+ 
+   return (
+     <Modal onClose={onClose} triggerRef={triggerRef} label={`QR de ${activity.nombre}`}>
+-      <QRModalBody activity={activity} qrDataUrl={qrDataUrl} sharing={sharing} onShare={handleShare} onShowFullscreen={() => setFullscreen(true)} onPrint={handlePrint} />
++      <QRModalBody
++        activity={activity}
++        qrDataUrl={qrDataUrl}
++        sharing={sharing}
++        downloading={downloading}
++        onShare={handleShare}
++        onDownload={handleDownload}
++        onShowFullscreen={() => setFullscreen(true)}
++      />
+     </Modal>
+   );
+ }
+diff --git a/src/domain/shareCard.js b/src/domain/shareCard.js
+index 1ef5b42..cedf9d1 100644
+--- a/src/domain/shareCard.js
++++ b/src/domain/shareCard.js
+@@ -66,8 +66,12 @@ function wrapAndClamp(ctx, text, maxWidth, maxLines) {
+       }
+     }
+   }
+-  if (!truncated && lines.length < maxLines && current) lines.push(current);
+-  else if (truncated) current = '';
++  if (!truncated && lines.length < maxLines && current) {
++    lines.push(current);
++    current = '';
++  } else if (truncated) {
++    current = '';
++  }
+ 
+   if (lines.length === maxLines && (truncated || current)) {
+     let last = lines[maxLines - 1];
+@@ -227,4 +231,155 @@ function drawShareCard(ctx, { activity, qrImage, logoImage, size = 1080 }) {
+   }
+ }
+ 
+-export { drawShareCard };
++/**
++ * Afiche A4 (1240×1754 ≈ proporción 210×297mm) para descargar/imprimir, en
++ * el mismo <canvas> que la tarjeta compartible — a propósito, no por CSS de
++ * impresión. Android "Guardar como PDF" no respeta de forma confiable
++ * `print-color-adjust`, así que el fondo navy/dorado desaparecía al
++ * descargar (quedaba solo blanco) aunque en Chrome de escritorio se viera
++ * bien. Un canvas rasteriza los colores directo en los píxeles — no hay
++ * nada que el sistema operativo pueda "no respetar".
++ */
++function drawPrintFlyer(ctx, { activity, qrImage, logoImage, formUrl, width = 1240, height = 1754 }) {
++  const W = width;
++  const H = height;
++  ctx.clearRect(0, 0, W, H);
++  ctx.textAlign = 'center';
++
++  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H);
++  bg.addColorStop(0, '#14284f');
++  bg.addColorStop(0.55, '#1a3a6b');
++  bg.addColorStop(1, '#234a86');
++  ctx.fillStyle = bg;
++  ctx.fillRect(0, 0, W, H);
++
++  const glow1 = ctx.createRadialGradient(W * 0.1, H * 0.04, 0, W * 0.1, H * 0.04, W * 0.5);
++  glow1.addColorStop(0, 'rgba(245,166,35,0.16)');
++  glow1.addColorStop(1, 'rgba(245,166,35,0)');
++  ctx.fillStyle = glow1;
++  ctx.fillRect(0, 0, W, H);
++
++  ctx.strokeStyle = 'rgba(245,166,35,0.14)';
++  ctx.lineWidth = 2;
++  ctx.beginPath();
++  ctx.arc(W * 1.05, H * 1.0, W * 0.32, 0, Math.PI * 2);
++  ctx.stroke();
++
++  const ruleGrad = ctx.createLinearGradient(W * 0.08, 0, W * 0.92, 0);
++  ruleGrad.addColorStop(0, '#f5a623');
++  ruleGrad.addColorStop(1, '#f7c948');
++  ctx.fillStyle = ruleGrad;
++  ctx.fillRect(W * 0.08, H * 0.028, W * 0.84, H * 0.0025);
++
++  let y = H * 0.065;
++
++  const logoR = W * 0.075;
++  const logoCx = W / 2;
++  const logoCy = y + logoR;
++  ctx.save();
++  ctx.beginPath();
++  ctx.arc(logoCx, logoCy, logoR, 0, Math.PI * 2);
++  ctx.fillStyle = '#fff';
++  ctx.shadowColor = 'rgba(0,0,0,0.35)';
++  ctx.shadowBlur = W * 0.018;
++  ctx.shadowOffsetY = W * 0.007;
++  ctx.fill();
++  ctx.shadowColor = 'transparent';
++  ctx.clip();
++  const pad = logoR * 0.12;
++  if (logoImage) ctx.drawImage(logoImage, logoCx - logoR + pad, logoCy - logoR + pad, (logoR - pad) * 2, (logoR - pad) * 2);
++  ctx.restore();
++  y = logoCy + logoR + H * 0.02;
++
++  ctx.fillStyle = '#f7c948';
++  ctx.font = `800 ${W * 0.017}px Nunito, sans-serif`;
++  ctx.fillText('C E N T R O   J A S   N O R O E S T E', W / 2, y);
++  y += H * 0.032;
++
++  const nameLen = activity.nombre.length;
++  const nameFontPx = nameLen > 42 ? W * 0.034 : nameLen > 26 ? W * 0.04 : W * 0.046;
++  ctx.font = `900 ${nameFontPx}px Nunito, sans-serif`;
++  ctx.fillStyle = '#fff';
++  const nameLines = wrapAndClamp(ctx, activity.nombre, W * 0.84, 2);
++  for (const line of nameLines) {
++    y += nameFontPx * 0.62;
++    ctx.fillText(line, W / 2, y);
++    y += nameFontPx * 0.5;
++  }
++  y += H * 0.016;
++
++  const badgeText = `${activity.fecha}${activity.lugar ? ` · ${activity.lugar}` : ''}`;
++  ctx.font = `800 ${W * 0.018}px Nunito, sans-serif`;
++  const badgeTextClamped = ellipsize(ctx, badgeText, W * 0.68);
++  const badgeTextW = ctx.measureText(badgeTextClamped).width;
++  const badgeW = badgeTextW + W * 0.07;
++  const badgeH = H * 0.026;
++  const badgeGrad = ctx.createLinearGradient(W / 2 - badgeW / 2, 0, W / 2 + badgeW / 2, 0);
++  badgeGrad.addColorStop(0, '#f5a623');
++  badgeGrad.addColorStop(1, '#f7c948');
++  ctx.fillStyle = badgeGrad;
++  ctx.beginPath();
++  ctx.roundRect(W / 2 - badgeW / 2, y, badgeW, badgeH, badgeH / 2);
++  ctx.fill();
++  ctx.fillStyle = '#14284f';
++  ctx.textBaseline = 'middle';
++  ctx.fillText(badgeTextClamped, W / 2, y + badgeH / 2 + 1);
++  ctx.textBaseline = 'alphabetic';
++  y += badgeH + H * 0.024;
++
++  // El footer se mide primero — el QR se lleva lo que sobra, nunca al revés
++  // (mismo principio que ya evitó el desborde a una segunda página en el
++  // afiche anterior).
++  const footerH = H * 0.02 + (activity.anfitrion ? H * 0.02 : 0) + H * 0.024 + H * 0.02;
++
++  const cardTop = y;
++  const cardBottom = H - footerH;
++  const cardPad = W * 0.035;
++  const instrH = H * 0.06;
++  const qrSize = Math.min(cardBottom - cardTop - cardPad * 2 - instrH, W * 0.72);
++  const cardW = qrSize + cardPad * 2;
++  const cardH = qrSize + cardPad * 2 + instrH;
++  const cardX = W / 2 - cardW / 2;
++  const cardY = cardTop + (cardBottom - cardTop - cardH) / 2; // centrado en el espacio disponible, no pegado arriba
++
++  ctx.save();
++  ctx.shadowColor = 'rgba(0,0,0,0.4)';
++  ctx.shadowBlur = W * 0.025;
++  ctx.shadowOffsetY = W * 0.01;
++  ctx.fillStyle = '#fff';
++  ctx.beginPath();
++  ctx.roundRect(cardX, cardY, cardW, cardH, W * 0.018);
++  ctx.fill();
++  ctx.restore();
++
++  if (qrImage) ctx.drawImage(qrImage, cardX + cardPad, cardY + cardPad, qrSize, qrSize);
++
++  ctx.fillStyle = '#1a3a6b';
++  ctx.font = `800 ${W * 0.021}px Nunito, sans-serif`;
++  ctx.fillText('📲 Escanea para inscribirte', W / 2, cardY + cardPad + qrSize + H * 0.028);
++  ctx.fillStyle = '#6b7a99';
++  ctx.font = `400 ${W * 0.015}px Lato, sans-serif`;
++  ctx.fillText('Abre la cámara de tu celular y apunta al código', W / 2, cardY + cardPad + qrSize + H * 0.047);
++
++  y = H - footerH + H * 0.02;
++
++  ctx.fillStyle = '#fff';
++  ctx.font = `800 ${W * 0.015}px Nunito, sans-serif`;
++  ctx.fillText('VENTANILLA  ·  MIRAMAR  ·  PUENTE PIEDRA', W / 2, y);
++
++  if (activity.anfitrion) {
++    y += H * 0.02;
++    ctx.fillStyle = 'rgba(255,255,255,0.62)';
++    ctx.font = `400 ${W * 0.014}px Lato, sans-serif`;
++    ctx.fillText(ellipsize(ctx, activity.anfitrion, W * 0.72), W / 2, y);
++  }
++
++  if (formUrl) {
++    y += H * 0.024;
++    ctx.fillStyle = 'rgba(255,255,255,0.42)';
++    ctx.font = `400 ${W * 0.0125}px Lato, sans-serif`;
++    ctx.fillText(ellipsize(ctx, `¿No puedes escanear? Ingresa a: ${formUrl}`, W * 0.85), W / 2, y);
++  }
++}
++
++export { drawShareCard, drawPrintFlyer };
