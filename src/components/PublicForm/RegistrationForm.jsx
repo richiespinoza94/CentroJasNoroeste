@@ -10,6 +10,33 @@ import './RegistrationForm.css';
 
 const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'estacaOtra', 'barrio', 'correo', 'privacidad'];
 
+function ActivityLoadingCard({ message }) {
+  return (
+    <div className="reg-form__loading-card" role="status" aria-live="polite">
+      <div className="reg-form__loading-brand">
+        <div className="reg-form__loading-logo" aria-hidden="true">
+          <img src={logoUrl} alt="" />
+        </div>
+        <div className="reg-form__loading-copy">
+          <div className="reg-form__loading-eyebrow">Centro JAS Noroeste</div>
+          <div className="reg-form__loading-title">Preparando tu registro</div>
+          <div className="reg-form__loading-text">{message}</div>
+        </div>
+      </div>
+
+      <div className="reg-form__loading-bar" aria-hidden="true">
+        <span />
+      </div>
+
+      <div className="reg-form__loading-dots" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
+
 // Normaliza acentos/mayúsculas — mismo patrón usado en el buscador de
 // Admin → Personas y en el checkin.html del Full Day.
 function normalize(s) {
@@ -185,11 +212,11 @@ export default function RegistrationForm() {
   const progreso = Math.round((filledCount / REQUIRED_FIELDS.length) * 100);
 
   if (activitiesLoading) {
-    return <div className="reg-form__loading">Cargando actividad…</div>;
+    return <ActivityLoadingCard message="Cargando actividad…" />;
   }
   if (!targetActivity) {
     return (
-      <div className="reg-form__loading">
+      <div className="reg-form__loading reg-form__loading--static" role="status">
         {activityIdParam
           ? 'Este enlace ya no corresponde a ninguna actividad disponible.'
           : 'No hay ninguna actividad abierta para inscripción en este momento. Vuelve a revisar más tarde.'}

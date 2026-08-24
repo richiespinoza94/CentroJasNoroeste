@@ -5,14 +5,173 @@
   box-shadow: var(--shadow-card);
 }
 
-.reg-form__loading {
+.reg-form__loading,
+.reg-form__loading-card {
   background: var(--white);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+}
+
+.reg-form__loading {
   padding: 32px 20px;
   text-align: center;
   color: var(--ink-300);
   font-size: 14px;
+}
+
+.reg-form__loading--static {
+  line-height: 1.6;
+}
+
+.reg-form__loading-card {
+  position: relative;
+  overflow: hidden;
+  padding: 24px 20px;
+  display: grid;
+  gap: 16px;
+  isolation: isolate;
+}
+
+.reg-form__loading-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(245, 166, 35, 0.12), transparent 34%),
+    linear-gradient(165deg, rgba(26, 58, 107, 0.04), rgba(35, 74, 134, 0.01));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.reg-form__loading-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.reg-form__loading-logo {
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px rgba(26, 58, 107, 0.08), 0 10px 24px rgba(20, 30, 60, 0.08);
+  display: grid;
+  place-items: center;
+  animation: reg-form-float 2.6s ease-in-out infinite;
+}
+
+.reg-form__loading-logo img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.reg-form__loading-copy {
+  min-width: 0;
+  text-align: left;
+}
+
+.reg-form__loading-eyebrow {
+  color: var(--navy-700);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.reg-form__loading-title {
+  color: var(--navy-900);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.reg-form__loading-text {
+  color: var(--ink-500);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.reg-form__loading-bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(26, 58, 107, 0.08);
+  overflow: hidden;
+}
+
+.reg-form__loading-bar span {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold-500), #f7c948);
+  animation: reg-form-loading-sweep 1.25s var(--ease-out) infinite;
+}
+
+.reg-form__loading-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reg-form__loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--navy-700);
+  opacity: 0.28;
+  animation: reg-form-loading-dot 0.9s ease-in-out infinite;
+}
+
+.reg-form__loading-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.reg-form__loading-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes reg-form-loading-sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(290%);
+  }
+}
+
+@keyframes reg-form-loading-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 0.85;
+  }
+}
+
+@keyframes reg-form-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (max-width: 480px) {
+  .reg-form__loading-brand {
+    align-items: flex-start;
+  }
+
+  .reg-form__loading-title {
+    font-size: 18px;
+  }
 }
 
 /* Header — gradiente con los mismos navy ya definidos en tokens.css (no se
