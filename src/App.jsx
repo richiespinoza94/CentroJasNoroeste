@@ -46,7 +46,7 @@ export default function App() {
       <NavBar />
       <main className="app-main">
         <div className="app-main__inner">
-          {!authLoading && state.screen === 'publico' && <PublicScreen />}
+          {state.screen === 'publico' && <PublicScreen />}
           <Suspense fallback={<ScreenLoading />}>
             {!authLoading && state.screen === 'login' && <LoginScreen />}
             {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
