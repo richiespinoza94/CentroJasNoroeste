@@ -74,7 +74,7 @@ service cloud.firestore {
         return inscripcionId == (d.activityId + '_' + d.whatsapp)
           && d.whatsapp.matches('^9[0-9]{8}$')
           && d.status == 'pendiente'
-          && d.tableId == null
+          && d.get('tableId', null) == null
           && d.categoria in ['Miembro', 'Invitado'];
       }
       allow get: if true;

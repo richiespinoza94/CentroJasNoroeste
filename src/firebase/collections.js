@@ -126,6 +126,8 @@ function mirrorPublicIndex(whatsapp, nombreCompleto, estaca) {
   setDoc(doc(db, 'personas_publico', whatsapp), { nombreCompleto, estaca }).catch(() => {});
 }
 
+export const DUPLICATE_REGISTRATION_CODE = 'already-registered';
+
 const inscripcionDocId = (activityId, whatsapp) => `${activityId}_${whatsapp}`;
 
 // Staff-only, all personas (used by Admin → Personas and by the join in
@@ -171,7 +173,9 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
   await runTransaction(db, async (tx) => {
     const [personaSnap, inscripcionSnap] = await Promise.all([tx.get(personaRef), tx.get(inscripcionRef)]);
     if (inscripcionSnap.exists()) {
-      throw new Error('Ya existe un registro con este número para esta actividad.');
+      const err = new Error('Ya existe un registro con este número para esta actividad.');
+      err.code = DUPLICATE_REGISTRATION_CODE;
+      throw err;
     }
     tx.set(
       personaRef,
@@ -182,9 +186,9 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
   });
 }
 
-export function registerParticipant(form, activityId) {
-  mirrorPublicIndex(form.whatsapp, `${form.nombre.trim()} ${form.apellidos.trim()}`, form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca);
-  return registerForActivity(
+export async function registerParticipant(form, activityId) {
+  const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
+  await registerForActivity(
     activityId,
     form.whatsapp,
     {
@@ -192,12 +196,13 @@ export function registerParticipant(form, activityId) {
       apellidos: form.apellidos.trim(),
       sexo: form.sexo,
       fechaNacimiento: form.fechaNacimiento,
-      estaca: form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca,
+      estaca,
       barrio: form.barrio.trim(),
       correo: form.correo,
     },
     { categoria: form.categoria, status: 'pendiente' }
   );
+  mirrorPublicIndex(form.whatsapp, `${form.nombre.trim()} ${form.apellidos.trim()}`, estaca);
 }
 
 export function registerManual(m, activityId) {

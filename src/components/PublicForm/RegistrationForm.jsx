@@ -3,7 +3,7 @@ import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { ESTACAS, PUBLIC_CATEGORIAS } from '../../domain/constants.js';
 import { validateRegistration } from '../../domain/validation.js';
-import { registerParticipant, subscribePublicIndex, fetchPersonaByWhatsapp } from '../../firebase/collections.js';
+import { DUPLICATE_REGISTRATION_CODE, registerParticipant, subscribePublicIndex, fetchPersonaByWhatsapp } from '../../firebase/collections.js';
 import logoUrl from '../../assets/logo.png';
 import Field from '../ui/Field.jsx';
 import './RegistrationForm.css';
@@ -74,6 +74,7 @@ export default function RegistrationForm() {
   // (by design, see firestore.rules), so this can't be a live field check
   // the way the other validations are.
   const [serverError, setServerError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   // Índice público mínimo (nombre + estaca, ver collections.js) para avisar
   // "ya vimos a alguien parecido" — nunca autocompleta, nunca bloquea.
@@ -103,6 +104,7 @@ export default function RegistrationForm() {
 
   const setForm = (patch) => {
     if (patch.whatsapp !== undefined) setServerError('');
+    if (submitError) setSubmitError('');
     dispatch({ type: 'SET_FORM', patch });
   };
   const touch = (field) => dispatch({ type: 'TOUCH_FIELD', field });
@@ -181,6 +183,7 @@ export default function RegistrationForm() {
       if (firstInvalid) refs.current[firstInvalid]?.focus();
       return;
     }
+    setSubmitError('');
     setSubmitting(true);
     try {
       await registerParticipant(form, targetActivity.id);
@@ -194,14 +197,14 @@ export default function RegistrationForm() {
         },
       });
     } catch (err) {
-      // El único motivo por el que esta transacción específica falla es
-      // "ya existe una inscripción con este WhatsApp para esta actividad"
-      // (ver registerForActivity en collections.js) — así que siempre es
-      // seguro mostrar el mensaje contextualizado con el nombre real de la
-      // actividad, en vez del texto genérico que devuelve el backend.
-      setServerError(`Ya estás registrado(a) para "${targetActivity.nombre}". No necesitas volver a inscribirte.`);
-      touch('whatsapp');
-      refs.current.whatsapp?.focus();
+      if (err?.code === DUPLICATE_REGISTRATION_CODE) {
+        setServerError(`Ya estás registrado(a) para "${targetActivity.nombre}". No necesitas volver a inscribirte.`);
+        touch('whatsapp');
+        refs.current.whatsapp?.focus();
+      } else {
+        console.error('[registration] submit failed:', err);
+        setSubmitError('No pudimos completar tu registro en este momento. Inténtalo otra vez o avisa a recepción.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -473,6 +476,11 @@ export default function RegistrationForm() {
           </span>
         )}
 
+        {submitError && (
+          <div className="field-error" role="alert">
+            {submitError}
+          </div>
+        )}
         <button type="submit" className="reg-form__submit press" disabled={submitting}>
           {submitting ? 'Registrando…' : 'Registrarme'}
         </button>
