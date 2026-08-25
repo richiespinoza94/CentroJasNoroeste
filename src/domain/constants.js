@@ -42,6 +42,14 @@ export const STATUS_META = {
   presente: { label: 'Presente', bg: 'var(--success-bg)', color: 'var(--success-fg)' },
 };
 
+export function getStatusMeta(status) {
+  return STATUS_META[status] || {
+    label: status ? `Estado: ${status}` : 'Estado desconocido',
+    bg: 'var(--warn-bg)',
+    color: 'var(--warn-fg)',
+  };
+}
+
 export const ROLE_LABELS = { admin: 'Admin', recepcion: 'Recepción' };
 
 // EVENT_INFO ya no existe como constante fija — cada actividad se crea y

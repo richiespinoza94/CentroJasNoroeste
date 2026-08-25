@@ -96,25 +96,30 @@ export function subscribeAuthState(callback) {
       callback(null);
       return;
     }
-    // signUpStaff() writes the staff/{uid} profile in a batch *after*
-    // creating the Firebase Auth account, so this listener can legitimately
-    // fire in the split second before that write lands. A short retry
-    // absorbs that window; if the doc is still missing after it, the
-    // profile really was removed (an admin revoked access) and we sign out.
-    let snap = await getDoc(doc(db, 'staff', user.uid));
-    for (let attempt = 0; !snap.exists() && attempt < 5; attempt++) {
-      await wait(300);
-      snap = await getDoc(doc(db, 'staff', user.uid));
-    }
-    if (!snap.exists()) {
-      await signOut(auth);
+    try {
+      // signUpStaff() writes staff/{uid} immediately after creating Auth.
+      // Retry only the legitimate propagation window; any terminal error
+      // must resolve the auth state instead of leaving the UI blank forever.
+      let snap = await getDoc(doc(db, 'staff', user.uid));
+      for (let attempt = 0; !snap.exists() && attempt < 5; attempt++) {
+        await wait(300);
+        snap = await getDoc(doc(db, 'staff', user.uid));
+      }
+      if (!snap.exists()) {
+        await signOut(auth);
+        callback(null);
+        return;
+      }
+      callback({ uid: user.uid, ...snap.data() });
+    } catch (err) {
+      // A transient Firestore/network error must finish auth loading, but it
+      // must not destroy a valid Firebase Auth session. Missing staff docs
+      // are still explicitly signed out in the branch above.
+      console.error('[auth] failed to restore staff session:', err);
       callback(null);
-      return;
     }
-    callback({ uid: user.uid, ...snap.data() });
   });
 }
-
 /** Admin: reserve a username+role before that person has ever signed in. */
 export async function addPendingStaff(username, role) {
   const uname = normalize(username);

@@ -1,0 +1,67 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const read = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+const auth = read('src/firebase/auth.js');
+const collections = read('src/firebase/collections.js');
+const data = read('src/firebase/DataProvider.jsx');
+const reception = read('src/components/Reception/ReceptionScreen.jsx');
+const search = read('src/components/Reception/SearchTab.jsx');
+const recent = read('src/components/Reception/RecentActivity.jsx');
+const admin = read('src/components/Admin/AdminScreen.jsx');
+const app = read('src/App.jsx');
+const constants = read('src/domain/constants.js');
+const form = read('src/components/PublicForm/RegistrationForm.jsx');
+const rules = read('firestore.rules');
+
+let passed = 0;
+function check(name, fn) { fn(); passed++; console.log('ok — ' + passed + ' ' + name); }
+
+check('auth still subscribes with Firebase onAuthStateChanged', () => assert.ok(auth.includes('onAuthStateChanged(auth')));
+check('signed-out auth resolves callback null', () => assert.ok(auth.includes('if (!user)') && auth.includes('callback(null)')));
+check('staff profile still uses staff/{uid}', () => assert.ok(auth.includes("doc(db, 'staff', user.uid)")));
+check('staff profile retry remains bounded', () => assert.ok(auth.includes('attempt < 5')));
+check('terminal auth restore errors are caught', () => assert.ok(auth.includes("console.error('[auth] failed to restore staff session:'")));
+check('terminal auth error resolves auth state', () => { const c = auth.slice(auth.indexOf('} catch (err) {'), auth.indexOf('/** Admin:')); assert.ok(c.includes('callback(null)')); });
+check('confirmed missing staff profile still clears invalid session', () => { const a = auth.indexOf('if (!snap.exists())'); const b = auth.indexOf('callback({ uid: user.uid', a); assert.ok(a >= 0 && b > a && auth.slice(a, b).includes('await signOut(auth)')); });
+check('subscription helper accepts terminal onError', () => assert.ok(collections.includes('onData, onError = () => {}')));
+check('terminal Firestore subscription invokes onError', () => assert.ok(collections.includes('onError(err);')));
+check('permission retry remains present', () => assert.ok(collections.includes("err.code === 'permission-denied' && n < 5")));
+check('activities subscription forwards onError', () => assert.ok(collections.includes('subscribeActivities(callback, onError)') && collections.includes('callback, onError);')));
+check('personas subscription forwards onError', () => assert.ok(collections.includes('subscribePersonas(callback, onError)')));
+check('inscripciones subscription forwards onError', () => assert.ok(collections.includes('subscribeInscripciones(activityId, callback, onError)')));
+check('DataProvider owns explicit per-source error state', () => assert.ok(data.includes('const [dataErrors, setDataErrors] = useState({') && ['activities: null', 'personas: null', 'inscripciones: null'].every((x) => data.includes(x))));
+check('activities failure ends activities loading', () => assert.ok(data.includes("setActivitiesReady(true);\n        setDataErrors((prev) => ({ ...prev, activities: 'No pudimos cargar las actividades")));
+check('personas starts a fresh loading cycle for signed staff', () => assert.ok(data.includes('setPersonasReady(false);\n    const unsub = subscribePersonas')));
+check('personas failure ends personas loading', () => assert.ok(data.includes("setPersonasReady(true);\n        setDataErrors((prev) => ({ ...prev, personas: 'No pudimos cargar las personas")));
+check('inscripciones failure ends inscription loading', () => assert.ok(data.includes("setInscripcionesReady(true);\n        setDataErrors((prev) => ({ ...prev, inscripciones: 'No pudimos cargar las inscripciones")));
+check('DataProvider exposes error to consumers', () => assert.ok(data.includes('error: dataError')));
+check('DataProvider memo tracks derived dataError', () => assert.ok(data.includes('const dataError = dataErrors.activities || dataErrors.personas || dataErrors.inscripciones || null') && data.includes('inscripcionesReady, dataError, user')));
+check('Reception consumes shared data error', () => assert.ok(reception.includes('activeActivity, error')));
+check('Reception renders accessible error instead of blank/loading forever', () => assert.ok(reception.includes('role="alert">{error}')));
+check('Admin consumes shared data error', () => assert.ok(admin.includes('loading, error')));
+check('Admin renders accessible error', () => assert.ok(admin.includes("role={error ? 'alert' : undefined}")));
+check('status helper keeps known statuses', () => assert.ok(constants.includes('return STATUS_META[status] ||')));
+check('status helper gives unknown status fallback', () => assert.ok(constants.includes("'Estado desconocido'")));
+check('SearchTab no longer indexes STATUS_META directly', () => assert.ok(!search.includes('STATUS_META[') && search.includes('getStatusMeta')));
+check('RecentActivity no longer indexes STATUS_META directly', () => assert.ok(!recent.includes('STATUS_META[') && recent.includes('getStatusMeta')));
+check('SearchTab still exposes check-in action', () => assert.ok(search.includes('await checkIn(p.id)')));
+check('SearchTab still exposes undo action', () => assert.ok(search.includes('await revertCheckIn(p.id)')));
+check('SearchTab still exposes category change', () => assert.ok(search.includes('await setCategoria(p.id, categoria)')));
+check('staff ErrorBoundary exists', () => assert.ok(app.includes('class StaffErrorBoundary extends Component')));
+check('staff ErrorBoundary has visible fallback', () => assert.ok(app.includes('No pudimos cargar esta sección. Recarga la página.')));
+check('boundary resets when screen changes', () => assert.ok(app.includes('<StaffErrorBoundary key={state.screen}>')));
+check('public screen remains outside authLoading gate', () => assert.ok(app.includes("{state.screen === 'publico' && <PublicScreen />}")));
+check('Reception remains protected by signed-in user', () => assert.ok(app.includes("state.screen === 'recepcion' && isLoggedIn")));
+check('Admin remains protected by admin role', () => assert.ok(app.includes("state.screen === 'admin' && isAdmin")));
+check('V4 duplicate code remains in backend', () => assert.ok(collections.includes("DUPLICATE_REGISTRATION_CODE = 'already-registered'")));
+check('V4 frontend still distinguishes duplicate from technical failure', () => assert.ok(form.includes('DUPLICATE_REGISTRATION_CODE') && form.includes("console.error('[registration] submit failed:'")));
+check('V4 Firestore optional tableId rule remains safe', () => assert.ok(rules.includes("d.get('tableId', null) == null") && !rules.includes('d.tableId == null')));
+check('manual registration still exists', () => assert.ok(collections.includes('export function registerManual')));
+check('check-in backend still writes presente', () => assert.ok(collections.includes("status: 'presente'")));
+check('undo backend still writes pendiente', () => assert.ok(collections.includes("status: 'pendiente'")));
+check('category backend update remains intact', () => assert.ok(collections.includes('export function setCategoria')));
+check('premium public loader remains present', () => assert.ok(form.includes('ActivityLoadingCard')));
+
+assert.equal(passed, 45);
+console.log('\n45 QA staff/regression checks passed.');

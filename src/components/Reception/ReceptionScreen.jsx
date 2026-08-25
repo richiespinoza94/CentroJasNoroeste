@@ -17,7 +17,7 @@ const TABS = [
 
 export default function ReceptionScreen() {
   const { state, dispatch } = useStore();
-  const { participants, loading, activeActivity } = useFirestoreData();
+  const { participants, loading, activeActivity, error } = useFirestoreData();
   const { receptionTab } = state;
   const [qrOpen, setQrOpen] = useState(false);
   const qrTriggerRef = useRef(null);
@@ -55,7 +55,9 @@ export default function ReceptionScreen() {
         ))}
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="reception__loading" role="alert">{error}</div>
+      ) : loading ? (
         <div className="reception__loading">Cargando datos en tiempo real…</div>
       ) : (
         <>

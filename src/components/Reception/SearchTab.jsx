@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
-import { STATUS_META, CATEGORIAS } from '../../domain/constants.js';
+import { getStatusMeta, CATEGORIAS } from '../../domain/constants.js';
 import { checkIn, revertCheckIn, setCategoria } from '../../firebase/collections.js';
 import RecentActivity from './RecentActivity.jsx';
 import './SearchTab.css';
@@ -79,7 +79,7 @@ export default function SearchTab() {
         />
         <div className="search-tab__list">
           {filtered.map((p) => {
-            const meta = STATUS_META[p.status];
+            const meta = getStatusMeta(p.status);
             return (
               <button
                 key={p.id}
@@ -107,7 +107,9 @@ export default function SearchTab() {
       </div>
 
       <div className="search-tab__detail" ref={detailRef}>
-        {selected ? (
+        {selected ? (() => {
+          const selectedMeta = getStatusMeta(selected.status);
+          return (
           <>
             <div className="search-tab__detail-name">
               {selected.nombre} {selected.apellidos}
@@ -137,9 +139,9 @@ export default function SearchTab() {
             </div>
             <span
               className="badge"
-              style={{ display: 'inline-block', marginTop: 12, background: STATUS_META[selected.status].bg, color: STATUS_META[selected.status].color }}
+              style={{ display: 'inline-block', marginTop: 12, background: selectedMeta.bg, color: selectedMeta.color }}
             >
-              {STATUS_META[selected.status].label}
+              {selectedMeta.label}
             </span>
 
             {selected.status === 'pendiente' && (
@@ -154,7 +156,8 @@ export default function SearchTab() {
               </button>
             )}
           </>
-        ) : (
+          );
+        })() : (
           <div className="search-tab__placeholder">Selecciona una persona de la lista.</div>
         )}
       </div>

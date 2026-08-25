@@ -20,12 +20,24 @@ export function DataProvider({ children }) {
   const [personasReady, setPersonasReady] = useState(false);
   const [inscripcionesReady, setInscripcionesReady] = useState(false);
   const [activitiesReady, setActivitiesReady] = useState(false);
+  const [dataErrors, setDataErrors] = useState({
+    activities: null,
+    personas: null,
+    inscripciones: null,
+  });
 
   useEffect(() => {
-    const unsub = subscribeActivities((rows) => {
-      setActivities(rows);
-      setActivitiesReady(true);
-    });
+    const unsub = subscribeActivities(
+      (rows) => {
+        setActivities(rows);
+        setActivitiesReady(true);
+        setDataErrors((prev) => ({ ...prev, activities: null }));
+      },
+      () => {
+        setActivitiesReady(true);
+        setDataErrors((prev) => ({ ...prev, activities: 'No pudimos cargar las actividades. Revisa tu conexión y vuelve a intentarlo.' }));
+      }
+    );
     return unsub;
   }, []);
 
@@ -35,12 +47,21 @@ export function DataProvider({ children }) {
     if (!user) {
       setPersonas([]);
       setPersonasReady(false);
+      setDataErrors((prev) => ({ ...prev, personas: null }));
       return;
     }
-    const unsub = subscribePersonas((rows) => {
-      setPersonas(rows);
-      setPersonasReady(true);
-    });
+    setPersonasReady(false);
+    const unsub = subscribePersonas(
+      (rows) => {
+        setPersonas(rows);
+        setPersonasReady(true);
+        setDataErrors((prev) => ({ ...prev, personas: null }));
+      },
+      () => {
+        setPersonasReady(true);
+        setDataErrors((prev) => ({ ...prev, personas: 'No pudimos cargar las personas. Revisa tu conexión o permisos.' }));
+      }
+    );
     return unsub;
   }, [user]);
 
@@ -57,13 +78,23 @@ export function DataProvider({ children }) {
     if (!user || !activeActivityId) {
       setInscripciones([]);
       setInscripcionesReady(!activeActivityId);
+      setDataErrors((prev) => ({ ...prev, inscripciones: null }));
       return;
     }
     setInscripcionesReady(false);
-    const unsub = subscribeInscripciones(activeActivityId, (rows) => {
-      setInscripciones(rows);
-      setInscripcionesReady(true);
-    });
+    setDataErrors((prev) => ({ ...prev, inscripciones: null }));
+    const unsub = subscribeInscripciones(
+      activeActivityId,
+      (rows) => {
+        setInscripciones(rows);
+        setInscripcionesReady(true);
+        setDataErrors((prev) => ({ ...prev, inscripciones: null }));
+      },
+      () => {
+        setInscripcionesReady(true);
+        setDataErrors((prev) => ({ ...prev, inscripciones: 'No pudimos cargar las inscripciones. Revisa tu conexión o permisos.' }));
+      }
+    );
     return unsub;
   }, [user, activeActivityId]);
 
@@ -82,6 +113,8 @@ export function DataProvider({ children }) {
       .sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
   }, [personas, inscripciones]);
 
+  const dataError = dataErrors.activities || dataErrors.personas || dataErrors.inscripciones || null;
+
   const value = useMemo(
     () => ({
       participants,
@@ -90,8 +123,9 @@ export function DataProvider({ children }) {
       activeActivity,
       activitiesLoading: !activitiesReady,
       loading: !!user && !(personasReady && inscripcionesReady),
+      error: dataError,
     }),
-    [participants, personas, activities, activeActivity, activitiesReady, personasReady, inscripcionesReady, user]
+    [participants, personas, activities, activeActivity, activitiesReady, personasReady, inscripcionesReady, dataError, user]
   );
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

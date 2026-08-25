@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Component, Suspense, lazy, useEffect } from 'react';
 import { useStore } from './state/store.jsx';
 import { useAuth } from './firebase/AuthProvider.jsx';
 import NavBar from './components/NavBar.jsx';
@@ -19,6 +19,25 @@ const AdminScreen = lazy(() => import('./components/Admin/AdminScreen.jsx'));
 
 function ScreenLoading() {
   return <div className="app-screen-loading">Cargando…</div>;
+}
+
+class StaffErrorBoundary extends Component {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('[staff-ui] screen crashed:', error);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <div className="app-screen-loading" role="alert">No pudimos cargar esta sección. Recarga la página.</div>;
+    }
+    return this.props.children;
+  }
 }
 
 export default function App() {
@@ -47,11 +66,13 @@ export default function App() {
       <main className="app-main">
         <div className="app-main__inner">
           {state.screen === 'publico' && <PublicScreen />}
-          <Suspense fallback={<ScreenLoading />}>
-            {!authLoading && state.screen === 'login' && <LoginScreen />}
-            {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
-            {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
-          </Suspense>
+          <StaffErrorBoundary key={state.screen}>
+            <Suspense fallback={<ScreenLoading />}>
+              {!authLoading && state.screen === 'login' && <LoginScreen />}
+              {!authLoading && state.screen === 'recepcion' && isLoggedIn && <ReceptionScreen />}
+              {!authLoading && state.screen === 'admin' && isAdmin && <AdminScreen />}
+            </Suspense>
+          </StaffErrorBoundary>
         </div>
       </main>
       <ToastHost />

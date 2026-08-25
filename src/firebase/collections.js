@@ -25,7 +25,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * emulator quirk), so a denied listener here gets a few short retries
  * before it's treated as a real, permanent permission problem.
  */
-function subscribeWithRetry(queryRef, onData) {
+function subscribeWithRetry(queryRef, onData, onError = () => {}) {
   let cancelled = false;
   let liveUnsub = () => {};
 
@@ -42,6 +42,7 @@ function subscribeWithRetry(queryRef, onData) {
           return;
         }
         console.error('[firestore] subscription failed:', err);
+        onError(err);
       }
     );
   }
@@ -55,8 +56,8 @@ function subscribeWithRetry(queryRef, onData) {
 
 // Activities — publicly readable (see firestore.rules), so this subscribes
 // regardless of auth state, unlike participants/tables below.
-export function subscribeActivities(callback) {
-  return subscribeWithRetry(query(collection(db, 'activities'), orderBy('createdAt', 'desc')), callback);
+export function subscribeActivities(callback, onError) {
+  return subscribeWithRetry(query(collection(db, 'activities'), orderBy('createdAt', 'desc')), callback, onError);
 }
 
 export async function createActivity(data) {
@@ -148,14 +149,14 @@ export function fetchAllInscripciones() {
   return getDocs(collection(db, 'inscripciones')).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 }
 
-export function subscribePersonas(callback) {
-  return subscribeWithRetry(collection(db, 'personas'), (rows) => callback(rows.map((r) => ({ ...r, whatsapp: r.id }))));
+export function subscribePersonas(callback, onError) {
+  return subscribeWithRetry(collection(db, 'personas'), (rows) => callback(rows.map((r) => ({ ...r, whatsapp: r.id }))), onError);
 }
 
 // Staff-only, inscripciones for one activity at a time — this is what
 // Reception/Admin actually operate on day-to-day.
-export function subscribeInscripciones(activityId, callback) {
-  return subscribeWithRetry(query(collection(db, 'inscripciones'), where('activityId', '==', activityId)), callback);
+export function subscribeInscripciones(activityId, callback, onError) {
+  return subscribeWithRetry(query(collection(db, 'inscripciones'), where('activityId', '==', activityId)), callback, onError);
 }
 
 /**

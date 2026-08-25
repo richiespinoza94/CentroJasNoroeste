@@ -20,7 +20,7 @@ const TABS = [
 ];
 
 export default function AdminScreen() {
-  const { participants, activities, personas, activeActivity, loading } = useFirestoreData();
+  const { participants, activities, personas, activeActivity, loading, error } = useFirestoreData();
   const toast = useToast();
   const [tab, setTab] = useState('dashboard');
   const [downloading, setDownloading] = useState(false);
@@ -42,10 +42,12 @@ export default function AdminScreen() {
     }
   }
 
-  if (loading) {
+  if (error || loading) {
     return (
       <div className="admin">
-        <div className="admin__loading">Cargando datos en tiempo real…</div>
+        <div className="admin__loading" role={error ? 'alert' : undefined}>
+          {error || 'Cargando datos en tiempo real…'}
+        </div>
       </div>
     );
   }
