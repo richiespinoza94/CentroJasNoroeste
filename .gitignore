@@ -1,7 +1,21 @@
-node_modules
+﻿node_modules
 dist
 .DS_Store
 *.local
 .env
 .env.local
 serviceAccountKey.json
+
+# Parches y salidas de migraciones puntuales — se aplican/corren y se
+# descartan, nunca deberían quedar versionados en el repo (paso por
+# accidente con un git add -A una vez, ver historial). Reglas puntuales
+# a proposito - un patron generico como *.json se hubiera llevado por
+# delante firebase.json/package.json.
+*.patch
+/migration-*.csv
+/migration-*.json
+/CENTROJAS_*
+/QA_*
+/README_MIGRACION_*
+/REVISION_MIGRACION_*
+/noche_hogar_*

@@ -1,7 +1,9 @@
 // ponytail: one runnable check for the branchy domain logic (validation),
 // not a full test suite. `npm run check` runs this.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { validateRegistration, validateManual, ageFromDate } from '../src/domain/validation.js';
+import { getStatusMeta, STATUS_META } from '../src/domain/constants.js';
 
 let passed = 0;
 function check(name, fn) {
@@ -119,6 +121,40 @@ check('emails with repeated chars in the local part are rejected', () => {
 check('a real-looking email still passes', () => {
   const errs = validateRegistration({ ...validForm, correo: 'maria.ramirez94@gmail.com' }, []);
   assert.equal(errs.correo, undefined);
+});
+
+// getStatusMeta — reemplaza los "qa-*.mjs" que llegaron con el último lote
+// de parches: aquellos comprobaban que cierto texto existiera en el
+// archivo fuente (frágil, se rompe con cualquier refactor sin que signifique
+// un bug real, y no prueba comportamiento). Esto sí ejecuta la función real.
+check('getStatusMeta returns the known metadata for a real status', () => {
+  assert.deepEqual(getStatusMeta('presente'), STATUS_META.presente);
+  assert.deepEqual(getStatusMeta('pendiente'), STATUS_META.pendiente);
+});
+check('getStatusMeta falls back gracefully for an unknown/legacy status', () => {
+  // Cubre el caso real que rompía SearchTab/RecentActivity antes de esto:
+  // un dato viejo con un status que ya no existe en el vocabulario actual
+  // (ej. "asignado"/"sin_mesa", de cuando existían las mesas) no debe
+  // tirar la pantalla — debe devolver algo mostrable.
+  const meta = getStatusMeta('asignado');
+  assert.ok(meta.label && meta.bg && meta.color);
+  assert.ok(meta.label.includes('asignado'), 'el estado desconocido debería quedar visible en la etiqueta, no ocultarse');
+});
+check('getStatusMeta handles a missing/empty status without throwing', () => {
+  assert.doesNotThrow(() => getStatusMeta(undefined));
+  assert.doesNotThrow(() => getStatusMeta(''));
+});
+
+// Tripwire puntual (no una re-implementación de las reglas de Firestore):
+// `d.tableId == null` con acceso directo a un campo que el código ya no
+// escribe causaba un error de evaluación en las reglas → denegaba TODO
+// registro público, disfrazado de "ya estás registrado". Ya se corrigió a
+// `d.get('tableId', null) == null`. Esto solo evita que alguien reintroduzca
+// el acceso directo sin querer — no reemplaza probar las reglas de verdad
+// contra un emulador, que este proyecto no tiene configurado.
+check('firestore.rules never accesses the removed tableId field directly (regression guard)', () => {
+  const rules = fs.readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  assert.ok(!/\bd\.tableId\b/.test(rules), 'usa d.get(\'tableId\', null) en vez de d.tableId — el campo ya no se escribe, el acceso directo tira error de evaluación y deniega el permiso');
 });
 
 console.log(`\n${passed} checks passed.`);
