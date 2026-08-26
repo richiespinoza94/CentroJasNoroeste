@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchAllInscripciones } from '../../firebase/collections.js';
 import { usePagination } from '../../hooks/usePagination.js';
+import FilterChips from '../shared/FilterChips.jsx';
 import { CATEGORIAS, STATUS_META } from '../../domain/constants.js';
 import StatCards from '../shared/StatCards.jsx';
 import AttendanceTrendChart from './AttendanceTrendChart.jsx';
@@ -156,20 +157,15 @@ export default function ActivityHistory({ activities, personas }) {
             Descargar reporte (Excel)
           </button>
 
-          <div className="activity-history__filters" role="tablist" aria-label="Filtrar por categoría">
-            {['Todos', ...CATEGORIAS].map((c) => (
-              <button
-                key={c}
-                type="button"
-                role="tab"
-                aria-selected={categoriaFiltro === c}
-                className={`activity-history__filter-chip press${categoriaFiltro === c ? ' activity-history__filter-chip--active' : ''}`}
-                onClick={() => handleFilterCategoria(c)}
-              >
-                {c === 'Todos' ? `Todos (${selectedAttendees.length})` : `${CATEGORIA_PLURAL[c]} (${selectedAttendees.filter((p) => p.categoria === c).length})`}
-              </button>
-            ))}
-          </div>
+          <FilterChips
+            ariaLabel="Filtrar por categoría"
+            active={categoriaFiltro}
+            onChange={handleFilterCategoria}
+            options={['Todos', ...CATEGORIAS].map((c) => ({
+              id: c,
+              label: c === 'Todos' ? `Todos (${selectedAttendees.length})` : `${CATEGORIA_PLURAL[c]} (${selectedAttendees.filter((p) => p.categoria === c).length})`,
+            }))}
+          />
 
           <div className="activity-history__list">
             {attendeesPage.map((p) => {

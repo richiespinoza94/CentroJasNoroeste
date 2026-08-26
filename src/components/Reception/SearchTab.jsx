@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../state/store.jsx';
 import { useFirestoreData } from '../../firebase/DataProvider.jsx';
 import { useToast } from '../../hooks/useToast.jsx';
+import { usePagination } from '../../hooks/usePagination.js';
 import { getStatusMeta, CATEGORIAS } from '../../domain/constants.js';
 import { checkIn, revertCheckIn, setCategoria } from '../../firebase/collections.js';
+import FilterChips from '../shared/FilterChips.jsx';
 import RecentActivity from './RecentActivity.jsx';
 import './SearchTab.css';
+
+const PAGE_SIZE = 15;
 
 export default function SearchTab() {
   const { state, dispatch } = useStore();
@@ -13,6 +17,7 @@ export default function SearchTab() {
   const toast = useToast();
   const { search, selectedId } = state;
   const [busy, setBusy] = useState(false);
+  const [statusFiltro, setStatusFiltro] = useState('todos');
   const detailRef = useRef(null);
 
   // En mobile, lista y detalle quedan apilados (el detalle cae debajo de
@@ -24,9 +29,28 @@ export default function SearchTab() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return participants;
-    return participants.filter((p) => `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || p.whatsapp.includes(q));
-  }, [participants, search]);
+    let list = participants;
+    if (q) list = list.filter((p) => `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) || p.whatsapp.includes(q));
+    if (statusFiltro !== 'todos') list = list.filter((p) => p.status === statusFiltro);
+    // Pendientes primero — es lo que recepción necesita encontrar rápido;
+    // antes había que bajar hasta el final de la lista para verlos. Dentro
+    // de cada grupo, sort() es estable: mantiene el orden que ya traían.
+    return [...list].sort((a, b) => {
+      if (a.status === b.status) return 0;
+      return a.status === 'pendiente' ? -1 : 1;
+    });
+  }, [participants, search, statusFiltro]);
+
+  const { pageItems, page, setPage, totalPages } = usePagination(filtered, PAGE_SIZE);
+
+  function handleSearchChange(value) {
+    dispatch({ type: 'SET_SEARCH', value });
+    setPage(0);
+  }
+  function handleFilterStatus(status) {
+    setStatusFiltro(status);
+    setPage(0);
+  }
 
   const selected = participants.find((p) => p.id === selectedId) || null;
 
@@ -73,12 +97,22 @@ export default function SearchTab() {
           type="text"
           className="search-tab__input"
           value={search}
-          onChange={(e) => dispatch({ type: 'SET_SEARCH', value: e.target.value })}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Buscar por nombre o WhatsApp..."
           aria-label="Buscar por nombre o WhatsApp"
         />
+        <FilterChips
+          ariaLabel="Filtrar por estado"
+          active={statusFiltro}
+          onChange={handleFilterStatus}
+          options={[
+            { id: 'todos', label: `Todos (${participants.length})` },
+            { id: 'pendiente', label: `Pendiente (${participants.filter((p) => p.status === 'pendiente').length})` },
+            { id: 'presente', label: `Presente (${participants.filter((p) => p.status === 'presente').length})` },
+          ]}
+        />
         <div className="search-tab__list">
-          {filtered.map((p) => {
+          {pageItems.map((p) => {
             const meta = getStatusMeta(p.status);
             return (
               <button
@@ -104,6 +138,19 @@ export default function SearchTab() {
           })}
           {filtered.length === 0 && <div className="search-tab__empty">Sin resultados.</div>}
         </div>
+        {totalPages > 1 && (
+          <div className="search-tab__pager">
+            <button type="button" className="search-tab__pager-btn press" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              ← Anterior
+            </button>
+            <span className="search-tab__pager-label">
+              Página {page + 1} de {totalPages}
+            </span>
+            <button type="button" className="search-tab__pager-btn press" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+              Siguiente →
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="search-tab__detail" ref={detailRef}>
