@@ -125,10 +125,29 @@ export default function RegistrationForm() {
   // de estaca, de correo, etc.), pero el número es lo único que existe
   // específicamente para evitar duplicar identidad, así que ese no se toca.
   const [whatsappLocked, setWhatsappLocked] = useState(false);
+  // Coincide por CONJUNTO de palabras, no por el string completo idéntico
+  // — la mayoría de la gente en Perú tiene nombre compuesto y doble
+  // apellido, pero escribe una versión corta al registrarse ("Luciana
+  // Garcia" en vez de "Luciana Dulce Garcia Rodríguez"). Exigir igualdad
+  // exacta hacía que el aviso "¿eres tú?" casi nunca apareciera para gente
+  // que sí ya estaba registrada — el problema que se intentaba evitar.
+  //
+  // Se exige que TODAS las palabras escritas aparezcan como palabra
+  // completa (no como prefijo) en el nombre guardado — no alcanza con
+  // escribir solo el nombre de pila (ahí sí habría demasiados falsos
+  // positivos con nombres comunes). El match sigue sin autocompletar nada
+  // por sí solo: la persona igual tiene que confirmar "Sí, soy yo".
   const possibleMatch = useMemo(() => {
-    const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
-    if (nombreCompleto.length < 6 || matchDismissed || matchResolved) return null;
-    return publicIndex.find((p) => normalize(p.nombreCompleto) === nombreCompleto) || null;
+    const inputWords = normalize(`${form.nombre} ${form.apellidos}`)
+      .split(' ')
+      .filter(Boolean);
+    if (inputWords.length < 2 || matchDismissed || matchResolved) return null;
+    return (
+      publicIndex.find((p) => {
+        const storedWords = new Set(normalize(p.nombreCompleto).split(' ').filter(Boolean));
+        return inputWords.every((w) => storedWords.has(w));
+      }) || null
+    );
   }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
 
   async function handleConfirmMatch() {
