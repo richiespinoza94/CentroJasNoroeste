@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { validateRegistration, validateManual, ageFromDate } from '../src/domain/validation.js';
 import { getStatusMeta, STATUS_META } from '../src/domain/constants.js';
+import { computeBarrioDist } from '../src/domain/stats.js';
 
 let passed = 0;
 function check(name, fn) {
@@ -155,6 +156,17 @@ check('getStatusMeta handles a missing/empty status without throwing', () => {
 check('firestore.rules never accesses the removed tableId field directly (regression guard)', () => {
   const rules = fs.readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
   assert.ok(!/\bd\.tableId\b/.test(rules), 'usa d.get(\'tableId\', null) en vez de d.tableId — el campo ya no se escribe, el acceso directo tira error de evaluación y deniega el permiso');
+});
+
+check('computeBarrioDist excludes participants from estacas outside the 3 known ones', () => {
+  const rows = computeBarrioDist([
+    { estaca: 'Puente Piedra', barrio: 'Las Lomas' },
+    { estaca: 'Otro', barrio: 'Lomas' }, // texto libre parecido, pero NO es el mismo lugar
+    { estaca: 'Villa El Salvador', barrio: 'Barrio Las Lomas' },
+  ]);
+  assert.equal(rows.length, 1, 'solo debería quedar el barrio de la persona de una estaca conocida');
+  assert.equal(rows[0].label, 'Las Lomas');
+  assert.equal(rows[0].count, 1);
 });
 
 console.log(`\n${passed} checks passed.`);

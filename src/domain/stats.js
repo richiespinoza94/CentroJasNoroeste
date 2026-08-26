@@ -1,4 +1,4 @@
-import { CATEGORIAS } from './constants.js';
+import { CATEGORIAS, ESTACAS } from './constants.js';
 
 const CATEGORIA_PLURAL = { Miembro: 'Miembros', Invitado: 'Invitados', Líder: 'Líderes', Staff: 'Staff' };
 
@@ -24,4 +24,15 @@ function distribution(participants, key) {
 }
 
 export const computeEstacaDist = (participants) => distribution(participants, 'estaca');
-export const computeBarrioDist = (participants) => distribution(participants, 'barrio');
+
+// A diferencia de computeEstacaDist (donde "Otro"/estacas externas SÍ
+// importa mostrar — cuánta gente vino de fuera es información real), el
+// detalle por barrio solo tiene sentido estructurado dentro de las 3
+// estacas del centro. Alguien de "Otro"/una estaca externa que escribió
+// "Lomas" como su barrio no es la misma "Las Lomas" de Puente Piedra —
+// son lugares distintos que casualmente se parecen en el texto. Antes de
+// este filtro, el gráfico los mezclaba como si fueran variantes sin
+// fusionar del mismo barrio, cuando en realidad correspondía a personas
+// de estacas completamente distintas.
+const KNOWN_ESTACAS = new Set(Object.keys(ESTACAS));
+export const computeBarrioDist = (participants) => distribution(participants.filter((p) => KNOWN_ESTACAS.has(p.estaca)), 'barrio');
