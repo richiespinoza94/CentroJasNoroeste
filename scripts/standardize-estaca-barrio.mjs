@@ -37,6 +37,18 @@ function normalize(s) {
     .replace(/\s+/g, ' ');
 }
 
+// Quita un artículo inicial ("los"/"las"/"el"/"la ") — gente que escribe
+// "Alamos" en vez de "Los Álamos", o "Lomas" en vez de "Las Lomas", no está
+// cometiendo un error de tipeo (la distancia de edición es alta, se
+// perdería con el chequeo difuso normal) — está usando la forma corta que
+// cualquiera en el barrio entendería. Antes de aplicar esto se verificó
+// que, en la lista actual, nunca hay dos barrios de la misma estaca que
+// compartan el mismo nombre sin artículo — si esa lista cambia en el
+// futuro y eso deja de ser cierto, esta función necesitaría revisarse.
+function stripArticle(s) {
+  return s.replace(/^(los|las|el|la)\s+/, '');
+}
+
 // Distancia de edición simple (Levenshtein) — suficiente para atrapar
 // typos de tipeo a mano ("Ventanila", "Pachacutek"), no hace falta nada
 // más sofisticado para ~20 nombres conocidos.
@@ -67,6 +79,14 @@ function findMatch(value, candidates) {
 
   const exact = candidates.find((c) => normalize(c) === nv);
   if (exact) return { confidence: exact === value ? 'already-clean' : 'exact', match: exact };
+
+  // "Alamos" -> "Los Álamos", "Lomas" -> "Las Lomas" — no es un typo, es la
+  // forma corta de decirlo. Se trata como confianza alta (misma categoría
+  // que "exact" para efectos de qué se reporta como seguro de aplicar),
+  // no como "fuzzy" — no hay ambigüedad posible, es una coincidencia
+  // completa una vez quitado el artículo.
+  const noArt = candidates.find((c) => stripArticle(normalize(c)) === nv);
+  if (noArt) return { confidence: 'exact', match: noArt, note: 'artículo omitido' };
 
   const distances = candidates.map((c) => ({ c, d: levenshtein(nv, normalize(c)) }));
   distances.sort((a, b) => a.d - b.d);
