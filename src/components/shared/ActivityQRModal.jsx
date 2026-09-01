@@ -76,7 +76,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
   useEffect(() => {
     cancelled.current = false;
     import('qrcode').then((QRCode) =>
-      QRCode.toDataURL(registrationUrl(activity.id), { width: 960, margin: 1 }).then((url) => {
+      QRCode.toDataURL(registrationUrl(activity.id), { width: 960, margin: 1, errorCorrectionLevel: 'H' }).then((url) => {
         if (!cancelled.current) setQrDataUrl(url);
       })
     );

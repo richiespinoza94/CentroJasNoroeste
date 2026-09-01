@@ -26,6 +26,25 @@ export function DataProvider({ children }) {
     inscripciones: null,
   });
 
+  // Un dispositivo de Recepción típicamente queda abierto horas durante un
+  // evento — la pantalla se bloquea, el navegador limita/pausa conexiones
+  // en segundo plano para ahorrar batería, y en algunos casos el socket de
+  // Firestore no se reconecta solo al volver (o sí se reconecta pero se
+  // pierde algún evento intermedio) sin que haya ningún error visible: la
+  // pantalla se queda mostrando datos viejos, en silencio, hasta que
+  // alguien recarga a mano. `visibilitychange` es la señal estándar del
+  // navegador para "la pestaña volvió a primer plano" — se usa para forzar
+  // una reconexión limpia de los tres listeners en ese momento, en vez de
+  // depender de que el staff note que algo quedó desactualizado.
+  const [reconnectTick, setReconnectTick] = useState(0);
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') setReconnectTick((t) => t + 1);
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   useEffect(() => {
     const unsub = subscribeActivities(
       (rows) => {
@@ -39,7 +58,7 @@ export function DataProvider({ children }) {
       }
     );
     return unsub;
-  }, []);
+  }, [reconnectTick]);
 
   const activeActivity = useMemo(() => activities.find((a) => a.activa) || null, [activities]);
 
@@ -63,7 +82,7 @@ export function DataProvider({ children }) {
       }
     );
     return unsub;
-  }, [user]);
+  }, [user, reconnectTick]);
 
   // Scoped to whichever activity is active right now — this is what
   // Reception/Admin's day-to-day screens operate on. Depends on the
@@ -96,7 +115,7 @@ export function DataProvider({ children }) {
       }
     );
     return unsub;
-  }, [user, activeActivityId]);
+  }, [user, activeActivityId, reconnectTick]);
 
   // Joins personas + inscripciones into the same flat shape the old
   // participants collection had — SearchTab, ManualTab, StatCards,
