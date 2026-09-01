@@ -6,6 +6,7 @@ import { validateRegistration } from '../../domain/validation.js';
 import { DUPLICATE_REGISTRATION_CODE, registerParticipant, subscribePublicIndex, fetchPersonaByWhatsapp } from '../../firebase/collections.js';
 import logoUrl from '../../assets/logo.png';
 import Field from '../ui/Field.jsx';
+import { AlertIcon } from '../ui/Icon.jsx';
 import './RegistrationForm.css';
 
 const FIELD_ORDER = ['nombre', 'apellidos', 'fechaNacimiento', 'sexo', 'categoria', 'whatsapp', 'estaca', 'estacaOtra', 'barrio', 'correo', 'privacidad'];
@@ -100,6 +101,7 @@ export default function RegistrationForm() {
   }, [indexRequested, nombreCompletoLen]);
 
   const errors = useMemo(() => validateRegistration(form, []), [form]);
+  const errorCount = Object.keys(errors).length;
   const showErr = (field) => ((attempted || touched[field]) ? errors[field] : undefined);
 
   const setForm = (patch) => {
@@ -196,7 +198,7 @@ export default function RegistrationForm() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (Object.keys(errors).length > 0) {
+    if (errorCount > 0) {
       dispatch({ type: 'SUBMIT_ATTEMPT' });
       const firstInvalid = FIELD_ORDER.find((f) => errors[f]);
       if (firstInvalid) refs.current[firstInvalid]?.focus();
@@ -495,6 +497,14 @@ export default function RegistrationForm() {
           </span>
         )}
 
+        {attempted && errorCount > 0 && (
+          <div className="reg-form__error-summary" role="alert">
+            <AlertIcon width={18} height={18} />
+            <span>
+              {errorCount === 1 ? 'Hay 1 campo que necesita tu atención' : `Hay ${errorCount} campos que necesitan tu atención`} — revisa lo marcado en rojo arriba.
+            </span>
+          </div>
+        )}
         {submitError && (
           <div className="field-error" role="alert">
             {submitError}

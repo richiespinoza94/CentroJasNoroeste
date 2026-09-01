@@ -440,3 +440,20 @@
   letter-spacing: 0.3px;
   box-shadow: 0 4px 16px rgba(245, 166, 35, 0.35);
 }
+
+.reg-form__error-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fef2f2;
+  border-left: 3px solid var(--danger-500);
+  color: var(--danger-600);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.reg-form__error-summary svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
