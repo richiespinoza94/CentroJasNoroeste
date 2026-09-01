@@ -189,6 +189,15 @@ async function registerForActivity(activityId, whatsapp, personaData, inscripcio
 
 export async function registerParticipant(form, activityId) {
   const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
+  // status: 'presente' directo, no 'pendiente' — el formulario público solo
+  // se llena en el lugar, el mismo día del evento (confirmado con el dueño
+  // del proyecto). Escanear el QR o abrir el link ya implica estar ahí, así
+  // que exigir un paso aparte en Recepción para "confirmar" algo que ya es
+  // cierto solo generaba una fila más y confundía a la gente — la pantalla
+  // de confirmación anterior decía "pendiente" cuando la persona ya estaba
+  // físicamente presente y con el formulario lleno. Mismo criterio que ya
+  // usaba registerManual (abajo) para el registro que hace el staff con la
+  // persona parada enfrente.
   await registerForActivity(
     activityId,
     form.whatsapp,
@@ -201,7 +210,7 @@ export async function registerParticipant(form, activityId) {
       barrio: form.barrio.trim(),
       correo: form.correo,
     },
-    { categoria: form.categoria, status: 'pendiente' }
+    { categoria: form.categoria, status: 'presente' }
   );
   mirrorPublicIndex(form.whatsapp, `${form.nombre.trim()} ${form.apellidos.trim()}`, estaca);
 }

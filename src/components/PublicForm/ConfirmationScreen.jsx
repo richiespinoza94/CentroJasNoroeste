@@ -1,19 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../state/store.jsx';
-import { CheckIcon, ClockIcon } from '../ui/Icon.jsx';
+import { CheckIcon } from '../ui/Icon.jsx';
 import './ConfirmationScreen.css';
 
 /**
- * Dos estados visualmente separados a propósito, no uno solo:
- * 1. "Registro exitoso" (check verde/dorado) — lo que sí ya pasó.
- * 2. "Pendiente ingreso" (reloj, mismos colores que usa Recepción para
- *    este mismo estado — STATUS_META.pendiente) — lo que TODAVÍA falta.
- *
- * Antes decía solo "¡Registro completado!" con un check grande — fácil de
- * leer como "ya estoy confirmado(a)", sobre todo para alguien que escaneó
- * el QR, llenó el formulario, y nunca llega a pisar recepción pensando que
- * ya quedó todo listo. La asistencia real la confirma el staff en
- * recepción cuando la persona llega — este texto lo dice sin rodeos.
+ * El formulario público solo se llena en el lugar, el mismo día del
+ * evento — escanear el QR o abrir el link ya implica estar ahí. Por eso
+ * `registerParticipant` guarda status: 'presente' directo (ver
+ * collections.js) y esta pantalla confirma la asistencia sin pedir un
+ * paso aparte en Recepción — antes decía "pendiente ingreso", lo cual
+ * hacía pensar a alguien que ya estaba físicamente presente y con el
+ * formulario lleno que le faltaba algo más por hacer.
  */
 export default function ConfirmationScreen() {
   const { state, dispatch } = useStore();
@@ -32,19 +29,12 @@ export default function ConfirmationScreen() {
         <CheckIcon width={32} height={32} />
       </div>
       <h2 className="confirm__title" tabIndex={-1} ref={headingRef}>
-        ¡Registro exitoso!
+        ¡Asistencia confirmada!
       </h2>
       <div className="confirm__body">{confirmed.nombreCompleto}</div>
       <div className="confirm__code tabular">{confirmed.codigo}</div>
       <div className="confirm__sub">{confirmed.estacaBarrio}</div>
-
-      <div className="confirm__pending">
-        <ClockIcon width={20} height={20} />
-        <div>
-          <div className="confirm__pending-label">Pendiente ingreso</div>
-          <div className="confirm__pending-text">Tu registro ya quedó guardado, pero tu asistencia todavía no está confirmada. Muestra este código en recepción cuando llegues.</div>
-        </div>
-      </div>
+      <div className="confirm__note">Ya quedaste registrado(a) para esta actividad. ¡Que la disfrutes!</div>
 
       <button type="button" className="confirm__reset press" onClick={() => dispatch({ type: 'RESET_FORM' })}>
         Nuevo registro
