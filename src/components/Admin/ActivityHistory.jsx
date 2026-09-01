@@ -86,14 +86,18 @@ export default function ActivityHistory({ activities, personas }) {
     setAttendeesPage(0);
   }
 
-  const trendData = useMemo(
-    () =>
-      sortedActivities.map((a) => {
-        const rows = byActivity.get(a.id) || [];
-        return { label: a.nombre, fecha: a.fecha, registrados: rows.length, presentes: rows.filter((r) => r.status !== 'pendiente').length };
-      }),
-    [sortedActivities, byActivity]
-  );
+  const trendData = useMemo(() => {
+    const all = sortedActivities.map((a) => {
+      const rows = byActivity.get(a.id) || [];
+      return { label: a.nombre, fecha: a.fecha, registrados: rows.length, presentes: rows.filter((r) => r.status !== 'pendiente').length };
+    });
+    // Solo las últimas 8 — con más que eso, una etiqueta por punto en un
+    // SVG de ancho fijo empieza a apretarse hasta volverse ilegible en
+    // mobile. El detalle completo de cualquier actividad más vieja sigue
+    // disponible eligiéndola en el <select> de abajo, así que no se pierde
+    // información, solo se recorta lo que entra de un vistazo en la línea.
+    return all.slice(-8);
+  }, [sortedActivities, byActivity]);
 
   async function handleDownload() {
     if (!selected || selectedAttendees.length === 0) return;
@@ -122,20 +126,20 @@ export default function ActivityHistory({ activities, personas }) {
       <AttendanceTrendChart data={trendData} />
 
       <div className="activity-history__toolbar">
-        <div className="activity-history__selector" role="tablist" aria-label="Elegir actividad">
-          {sortedActivities.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              role="tab"
-              aria-selected={selected?.id === a.id}
-              className={`activity-history__chip press${selected?.id === a.id ? ' activity-history__chip--active' : ''}`}
-              onClick={() => handleSelectActivity(a.id)}
-            >
-              {a.nombre}
-            </button>
+        {/* <select> nativo en vez de una fila de chips con scroll horizontal
+            — con pocas actividades los chips se veían bien, pero con 5+ el
+            texto se truncaba ("Noche de Hogar C...") y había que adivinar
+            que se podía seguir deslizando. Un select no trunca nada, no
+            necesita scroll, y escala igual de bien con 5 actividades que
+            con 50 — mismo criterio (ponytail) que ya usan los select del
+            formulario de Recepción, no un componente nuevo. */}
+        <select className="activity-history__select" aria-label="Elegir actividad" value={selected?.id || ''} onChange={(e) => handleSelectActivity(e.target.value)}>
+          {[...sortedActivities].reverse().map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nombre} — {a.fecha}
+            </option>
           ))}
-        </div>
+        </select>
         <button type="button" className="activity-history__refresh press" disabled={refreshing} onClick={handleRefresh} aria-label="Actualizar historial">
           {refreshing ? '…' : '↻'}
         </button>
