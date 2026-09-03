@@ -119,8 +119,23 @@ export async function fetchPersonaByWhatsapp(whatsapp) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-export function subscribePublicIndex() {
-  return getDocs(collection(db, 'personas_publico')).then((snap) => snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() })));
+// El formulario público suele llenarse en datos móviles, con mucha gente
+// conectada a la vez en el mismo lugar — exactamente donde una lectura
+// puntual tiene más chance de fallar por una razón transitoria. Sin
+// reintento, esa única falla dejaba roto en silencio el aviso "¿eres tú?"
+// por el resto de la sesión: nada le avisaba a la persona, y ningún tiempo
+// de espera lo arreglaba, porque publicIndex se quedaba pegado en su
+// estado inicial vacío para siempre.
+export async function subscribePublicIndex(retries = 2) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const snap = await getDocs(collection(db, 'personas_publico'));
+      return snap.docs.map((d) => ({ whatsapp: d.id, ...d.data() }));
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      await wait(500 * (attempt + 1));
+    }
+  }
 }
 
 function mirrorPublicIndex(whatsapp, nombreCompleto, estaca) {

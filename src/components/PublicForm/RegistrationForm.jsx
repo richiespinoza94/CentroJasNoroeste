@@ -97,7 +97,7 @@ export default function RegistrationForm() {
   useEffect(() => {
     if (indexRequested || nombreCompletoLen < 6) return;
     setIndexRequested(true);
-    subscribePublicIndex().then(setPublicIndex);
+    subscribePublicIndex().then(setPublicIndex).catch(() => {});
   }, [indexRequested, nombreCompletoLen]);
 
   const errors = useMemo(() => validateRegistration(form, []), [form]);
