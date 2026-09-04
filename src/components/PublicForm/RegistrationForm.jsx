@@ -207,7 +207,28 @@ export default function RegistrationForm() {
     setSubmitError('');
     setSubmitting(true);
     try {
-      await registerParticipant(form, targetActivity.id);
+      // Reintenta solo errores transitorios de red (el mismo criterio que
+      // ya usa el resto de la app) — un evento con mucha gente conectada a
+      // la misma red es justo el escenario donde una escritura puede
+      // fallar por un hipo pasajero. 'permission-denied' y el código de
+      // duplicado NO se reintentan — reintentar no arregla ninguno de los
+      // dos, y en el caso de duplicado hasta podría generar un mensaje
+      // confuso en el segundo intento.
+      const TRANSIENT_CODES = ['unavailable', 'deadline-exceeded', 'internal', 'resource-exhausted'];
+      let lastErr;
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        try {
+          await registerParticipant(form, targetActivity.id);
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt === 2 || !TRANSIENT_CODES.includes(err?.code)) break;
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      if (lastErr) throw lastErr;
+
       const estaca = form.estaca === 'Otra estaca' ? form.estacaOtra.trim() : form.estaca;
       dispatch({
         type: 'FORM_SUCCESS',
@@ -224,7 +245,13 @@ export default function RegistrationForm() {
         refs.current.whatsapp?.focus();
       } else {
         console.error('[registration] submit failed:', err);
-        setSubmitError('No pudimos completar tu registro en este momento. Inténtalo otra vez o avisa a recepción.');
+        // El código real queda visible en el mensaje a propósito — antes
+        // decía siempre lo mismo sin importar la causa, lo cual hizo que
+        // un bug real (una regla de Firestore desactualizada) pasara
+        // varios registros sin que nadie pudiera saber qué estaba pasando
+        // hasta revisar la consola del navegador a mano.
+        const code = err?.code ? ` (código: ${err.code})` : '';
+        setSubmitError(`No pudimos completar tu registro en este momento${code}. Inténtalo otra vez o avisa a recepción.`);
       }
     } finally {
       setSubmitting(false);

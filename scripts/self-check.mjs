@@ -169,4 +169,24 @@ check('computeBarrioDist excludes participants from estacas outside the 3 known 
   assert.equal(rows[0].count, 1);
 });
 
+// Regression guard — el bug real que rompió el registro público: se
+// cambió el status que escribe el formulario (collections.js) sin
+// actualizar el valor que la regla exige para permitir la escritura
+// pública (firestore.rules) — quedaron desincronizados, y CADA envío del
+// formulario público empezó a fallar con "permission-denied" disfrazado
+// de "no pudimos completar tu registro". Este chequeo compara los dos
+// archivos directamente, para que un futuro cambio a uno sin el otro no
+// vuelva a pasar en silencio.
+check("registerParticipant's public status literal matches what firestore.rules requires", () => {
+  const collectionsSrc = fs.readFileSync(new URL('../src/firebase/collections.js', import.meta.url), 'utf8');
+  const rules = fs.readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+
+  const codeMatch = /registerParticipant[\s\S]*?status:\s*'(\w+)'/.exec(collectionsSrc);
+  const rulesMatch = /isValidPublicInscripcionCreate[\s\S]*?d\.status == '(\w+)'/.exec(rules);
+
+  assert.ok(codeMatch, 'no se encontró el status que escribe registerParticipant — revisar el patrón de búsqueda');
+  assert.ok(rulesMatch, 'no se encontró el status que exige la regla — revisar el patrón de búsqueda');
+  assert.equal(codeMatch[1], rulesMatch[1], `registerParticipant escribe status:'${codeMatch[1]}' pero la regla exige '${rulesMatch[1]}' — CUALQUIER registro público fallaría con permission-denied`);
+});
+
 console.log(`\n${passed} checks passed.`);
