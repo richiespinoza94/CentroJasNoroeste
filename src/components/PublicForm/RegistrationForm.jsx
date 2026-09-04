@@ -66,7 +66,16 @@ export default function RegistrationForm() {
   // "la actividad activa ahora" cuando está presente. Sin el parámetro
   // (visita directa a la app), se usa la actividad activa como hasta ahora.
   const activityIdParam = useMemo(() => new URLSearchParams(window.location.search).get('actividad'), []);
-  const targetActivity = (activityIdParam && activities.find((a) => a.id === activityIdParam)) || activeActivity;
+  // Si el link trae un ID de actividad, ese ID manda siempre — nunca cae
+  // en silencio a "lo que esté activo ahora". Antes, un QR viejo apuntando
+  // a una actividad ya borrada terminaba registrando a la persona en la
+  // actividad activa del momento, sin que se enterara que no era la suya
+  // — justo lo que la regla "el QR siempre apunta a SU actividad" debía
+  // evitar. El `if (activitiesLoading)` de abajo ya garantiza que
+  // `activities` esté completamente cargado antes de decidir si el ID no
+  // existe, así que no hace falta un estado extra para distinguir "todavía
+  // cargando" de "no existe".
+  const targetActivity = activityIdParam ? activities.find((a) => a.id === activityIdParam) : activeActivity;
   const { form, touched, attempted } = state;
   const refs = useRef({});
   const [submitting, setSubmitting] = useState(false);
@@ -92,7 +101,6 @@ export default function RegistrationForm() {
   // formulario se vea rápido".
   const [publicIndex, setPublicIndex] = useState([]);
   const [indexRequested, setIndexRequested] = useState(false);
-  const [matchDismissed, setMatchDismissed] = useState(false);
   const nombreCompletoLen = normalize(`${form.nombre} ${form.apellidos}`).length;
   useEffect(() => {
     if (indexRequested || nombreCompletoLen < 6) return;
@@ -121,6 +129,12 @@ export default function RegistrationForm() {
   // o descarta, aunque siga editando el nombre después.
   const [matchResolved, setMatchResolved] = useState(false);
   const [confirmingMatch, setConfirmingMatch] = useState(false);
+  // Guarda el nombre exacto que se descartó, no solo un booleano — así,
+  // si la persona corrige un error de tipeo o cambia de opinión y escribe
+  // un nombre distinto, el aviso puede volver a aparecer para una
+  // coincidencia legítima y diferente, en vez de quedar apagado para el
+  // resto de la sesión por haber descartado un falso positivo anterior.
+  const [dismissedName, setDismissedName] = useState(null);
   // Una vez confirmado, el WhatsApp queda fijo y enmascarado en pantalla —
   // ver maskWhatsapp arriba. El resto de los campos SÍ quedan editables:
   // los datos de un registro anterior pueden estar desactualizados (cambió
@@ -140,20 +154,21 @@ export default function RegistrationForm() {
   // positivos con nombres comunes). El match sigue sin autocompletar nada
   // por sí solo: la persona igual tiene que confirmar "Sí, soy yo".
   const possibleMatch = useMemo(() => {
-    const inputWords = normalize(`${form.nombre} ${form.apellidos}`)
-      .split(' ')
-      .filter(Boolean);
-    if (inputWords.length < 2 || matchDismissed || matchResolved) return null;
+    const nombreCompleto = normalize(`${form.nombre} ${form.apellidos}`);
+    const inputWords = nombreCompleto.split(' ').filter(Boolean);
+    if (inputWords.length < 2 || nombreCompleto === dismissedName || matchResolved) return null;
     return (
       publicIndex.find((p) => {
         const storedWords = new Set(normalize(p.nombreCompleto).split(' ').filter(Boolean));
         return inputWords.every((w) => storedWords.has(w));
       }) || null
     );
-  }, [publicIndex, form.nombre, form.apellidos, matchDismissed, matchResolved]);
+  }, [publicIndex, form.nombre, form.apellidos, dismissedName, matchResolved]);
 
+  const [matchConfirmError, setMatchConfirmError] = useState('');
   async function handleConfirmMatch() {
     setConfirmingMatch(true);
+    setMatchConfirmError('');
     try {
       // El índice público solo trae nombre+estaca (exposición mínima ya
       // acordada) — para autocompletar todo lo demás hace falta el
@@ -179,12 +194,22 @@ export default function RegistrationForm() {
       setWhatsappLocked(true);
       setMatchResolved(true);
       touch('whatsapp');
+    } catch (err) {
+      // Antes esto no tenía try/catch — si fetchPersonaByWhatsapp fallaba
+      // (red inestable, típico en un evento con mucha gente conectada),
+      // no pasaba nada visible: el botón se reactivaba sin ningún mensaje,
+      // y la persona se quedaba sin saber si tocar "Sí, soy yo" de nuevo
+      // serviría de algo. No bloquea el registro — el resto del formulario
+      // sigue editable, solo no se pudo autocompletar.
+      console.error('[registration] confirm match failed:', err);
+      setMatchConfirmError('No pudimos traer tus datos anteriores. Puedes intentar de nuevo, o solo completar el formulario tú mismo(a).');
     } finally {
       setConfirmingMatch(false);
     }
   }
   function handleDenyMatch() {
-    setMatchDismissed(true);
+    setDismissedName(normalize(`${form.nombre} ${form.apellidos}`));
+    setMatchConfirmError('');
   }
   // Por si alguien solo estaba probando el formulario y confirmó un match
   // que no era el suyo — vuelve a empezar de cero, con el número editable
@@ -193,7 +218,7 @@ export default function RegistrationForm() {
     dispatch({ type: 'RESET_FORM' });
     setWhatsappLocked(false);
     setMatchResolved(false);
-    setMatchDismissed(false);
+    setDismissedName(null);
   }
 
   async function handleSubmit(e) {
@@ -349,6 +374,11 @@ export default function RegistrationForm() {
                 No, es otra persona
               </button>
             </div>
+            {matchConfirmError && (
+              <div className="field-error" role="alert">
+                {matchConfirmError}
+              </div>
+            )}
           </div>
         )}
 
