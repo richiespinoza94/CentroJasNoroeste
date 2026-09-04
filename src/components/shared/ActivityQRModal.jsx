@@ -28,7 +28,18 @@ function ensureCanvasFonts() {
       new FontFace('Nunito', `url(${nunito800})`, { weight: '800' }).load().then((f) => document.fonts.add(f)),
       new FontFace('Nunito', `url(${nunito900})`, { weight: '900' }).load().then((f) => document.fonts.add(f)),
       new FontFace('Lato', `url(${lato400})`, { weight: '400' }).load().then((f) => document.fonts.add(f)),
-    ]);
+    ]).catch((err) => {
+      // Las fuentes son cosméticas: si no cargan, el canvas cae a la fuente
+      // de respaldo del sistema y la imagen igual sale bien. Antes esto no
+      // tenía catch, así que una falla de red convertía la promesa cacheada
+      // en una promesa RECHAZADA — y como se cachea a nivel de módulo, ese
+      // rechazo quedaba pegado para siempre: compartir y descargar fallaban
+      // en cada intento posterior de esa sesión, aunque la red ya se
+      // hubiera recuperado. Se resuelve igual, y se limpia la caché para
+      // que el próximo intento pueda volver a probar.
+      console.warn('[qr] no se pudieron cargar las fuentes del canvas, se usará la de respaldo:', err);
+      fontsReadyPromise = null;
+    });
   }
   return fontsReadyPromise;
 }
@@ -72,9 +83,22 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
   const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const cancelled = useRef(false);
+  // La tarjeta compartible se genera EN SEGUNDO PLANO apenas el QR está
+  // listo, no cuando la persona toca "Compartir".
+  //
+  // Motivo (iOS): Safari exige que navigator.share() se llame con
+  // "transient user activation" — dentro de la misma tanda del gesto que lo
+  // originó. Generar la imagen en ese momento implica varios `await`
+  // (cargar logo, cargar fuentes, canvas.toBlob), y si alguno tarda más que
+  // la ventana de activación, iOS rechaza la llamada con NotAllowedError.
+  // Eso hacía que compartir fallara de forma INTERMITENTE en iPhone: andaba
+  // si todo estaba en caché y rápido, fallaba si algo tardaba. Teniendo el
+  // blob listo de antes, navigator.share() se llama de inmediato.
+  const shareBlobRef = useRef(null);
 
   useEffect(() => {
     cancelled.current = false;
+    shareBlobRef.current = null;
     import('qrcode').then((QRCode) =>
       QRCode.toDataURL(registrationUrl(activity.id), { width: 960, margin: 1, errorCorrectionLevel: 'H' }).then((url) => {
         if (!cancelled.current) setQrDataUrl(url);
@@ -84,6 +108,23 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
       cancelled.current = true;
     };
   }, [activity.id]);
+
+  // Precalienta la tarjeta compartible en cuanto haya QR — sin bloquear la
+  // interfaz ni molestar si falla (si no llega a estar lista, handleShare
+  // igual la genera al vuelo como respaldo).
+  useEffect(() => {
+    if (!qrDataUrl) return;
+    let stale = false;
+    buildShareBlob()
+      .then((blob) => {
+        if (!stale) shareBlobRef.current = blob;
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrDataUrl, activity.id]);
 
   function loadImageEl(src) {
     return new Promise((resolve, reject) => {
@@ -110,39 +151,67 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    // Firefox (y algunos navegadores móviles) ignoran .click() en un
+    // elemento que no está insertado en el documento — la descarga no
+    // ocurría y no había ningún error que lo delatara. Insertarlo, hacer
+    // click y quitarlo es el patrón que funciona en todos.
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  async function buildShareBlob() {
+    const [logoImage, qrImage] = await Promise.all([loadImageEl(logoUrl), loadImageEl(qrDataUrl), ensureCanvasFonts()]);
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    drawShareCard(ctx, { activity, qrImage, logoImage, size: 1080 });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('No se pudo generar la imagen.');
+    return blob;
+  }
+
   /**
-   * Genera la tarjeta compartible (drawShareCard, ya probada contra casos
-   * extremos — ver domain/shareCard.js) y la comparte por la Web Share API
-   * nativa, que abre el selector del sistema (WhatsApp, Instagram, Facebook,
-   * TikTok, lo que el celular tenga instalado) — sin agregar ninguna
-   * librería, es lo que el navegador ya trae.
+   * Comparte por la Web Share API nativa, que abre el selector del sistema
+   * (WhatsApp, Instagram, Facebook, TikTok, lo que el celular tenga
+   * instalado) — sin agregar ninguna librería, es lo que el navegador ya
+   * trae.
+   *
+   * Usa el blob PRE-GENERADO (ver shareBlobRef arriba) para que la llamada
+   * a navigator.share() ocurra sin ningún await de por medio — requisito de
+   * iOS. Solo si todavía no estuviera listo se genera al vuelo, aceptando
+   * que en ese caso puntual iOS podría rechazarlo.
    *
    * No todos los navegadores soportan compartir ARCHIVOS (algunos solo
-   * texto/enlaces, y varios navegadores de escritorio no soportan nada de
-   * esto) — si no hay soporte, se descarga la imagen directamente en vez de
-   * fallar en silencio, para que la persona igual pueda compartirla a mano.
+   * texto/enlaces, y varios de escritorio no soportan nada de esto) — si no
+   * hay soporte, se descarga la imagen en vez de fallar en silencio.
    */
   async function handleShare() {
     if (!qrDataUrl || sharing) return;
+    const shareText = `¡Inscríbete a ${activity.nombre}! 📲\n${registrationUrl(activity.id)}`;
+
+    // Camino rápido: el blob ya está listo → nada de await antes de share().
+    const ready = shareBlobRef.current;
+    if (ready) {
+      const file = new File([ready], fileNameSlug(), { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: activity.nombre, text: shareText });
+        } catch (err) {
+          if (err?.name !== 'AbortError') toast('No se pudo compartir. Intenta de nuevo.', 'error');
+        }
+        return;
+      }
+    }
+
     setSharing(true);
     try {
-      const [logoImage, qrImage] = await Promise.all([loadImageEl(logoUrl), loadImageEl(qrDataUrl), ensureCanvasFonts()]);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1080;
-      const ctx = canvas.getContext('2d');
-      drawShareCard(ctx, { activity, qrImage, logoImage, size: 1080 });
-
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('No se pudo generar la imagen.');
+      const blob = ready || (await buildShareBlob());
+      shareBlobRef.current = blob;
       const file = new File([blob], fileNameSlug(), { type: 'image/png' });
-
-      const shareText = `¡Inscríbete a ${activity.nombre}! 📲\n${registrationUrl(activity.id)}`;
 
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: activity.nombre, text: shareText });
@@ -159,6 +228,7 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
     } catch (err) {
       if (err?.name !== 'AbortError') {
         // AbortError = la persona cerró el selector de compartir sin elegir nada — no es un error real.
+        console.error('[qr] share failed:', err);
         toast('No se pudo compartir. Intenta de nuevo.', 'error');
       }
     } finally {
@@ -200,6 +270,25 @@ export default function ActivityQRModal({ activity, triggerRef, onClose }) {
       setDownloading(false);
     }
   }
+
+  // La vista de pantalla completa es un modal propio (no usa ui/Modal.jsx,
+  // porque necesita ocupar todo el viewport sin la tarjeta ni el backdrop)
+  // — así que necesita su propio Escape y bloqueo de scroll, que ui/Modal
+  // sí trae de fábrica. Sin esto, quedaba como la única superficie modal de
+  // la app sin salida por teclado, y con el fondo desplazándose detrás.
+  useEffect(() => {
+    if (!fullscreen) return;
+    function onKey(e) {
+      if (e.key === 'Escape') setFullscreen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [fullscreen]);
 
   if (fullscreen && qrDataUrl) {
     return (
