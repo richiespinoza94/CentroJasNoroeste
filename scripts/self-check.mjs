@@ -189,4 +189,20 @@ check("registerParticipant's public status literal matches what firestore.rules 
   assert.equal(codeMatch[1], rulesMatch[1], `registerParticipant escribe status:'${codeMatch[1]}' pero la regla exige '${rulesMatch[1]}' — CUALQUIER registro público fallaría con permission-denied`);
 });
 
+// El reporte se rompía silenciosamente si un participante venía sin fecha
+// de nacimiento (48 casos reales así, migrados del Full Day) o sin
+// timestamps resueltos. Esto ejecuta el armado real del libro.
+check('buildParticipantsWorkbook handles missing dates and unknown estacas without throwing', async () => {
+  const { buildParticipantsWorkbook } = await import('../src/domain/report.js');
+  const ts = (iso) => ({ toDate: () => new Date(iso) });
+  const wb = buildParticipantsWorkbook([
+    { nombre: 'Diego', apellidos: 'Utia', sexo: 'M', fechaNacimiento: '2000-03-15', estaca: 'Ventanilla', barrio: 'Los Álamos', categoria: 'Miembro', whatsapp: '900608375', correo: 'd@x.com', status: 'presente', createdAt: ts('2026-08-31T19:05:00'), updatedAt: ts('2026-08-31T19:05:00') },
+    { nombre: 'Carlos', apellidos: 'Ruiz', fechaNacimiento: '', estaca: 'Naranjal', barrio: 'Central', categoria: 'Invitado', whatsapp: '933333333', status: 'presente', createdAt: null, updatedAt: null },
+    { nombre: 'Ana', apellidos: 'Lopez', fechaNacimiento: '2003-01-20', estaca: 'Miramar', barrio: 'Santa Rosa', categoria: 'Miembro', whatsapp: '911111111', status: 'pendiente', createdAt: ts('2026-08-30T08:00:00'), updatedAt: null },
+  ]);
+  assert.ok(wb.SheetNames.includes('Todos'), 'debería existir una hoja consolidada');
+  assert.ok(wb.SheetNames.includes('Otros'), 'las estacas externas necesitan su propia hoja');
+  assert.equal(wb.SheetNames.length, 5, 'Todos + las 3 estacas conocidas + Otros');
+});
+
 console.log(`\n${passed} checks passed.`);
